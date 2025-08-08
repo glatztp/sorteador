@@ -1,10 +1,9 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Key,
   Users,
   Trophy,
-  ChartLine,
   Copy,
   Plus,
   CheckCircle,
@@ -12,7 +11,15 @@ import {
   Info,
   Flask,
   Lightbulb,
+  Play,
+  Trash,
+  Eye,
+  EyeSlash,
+  ArrowRight,
+  ChartLine,
+  X,
 } from "phosphor-react";
+import { useNavigate } from "react-router-dom";
 
 interface ApiResponse {
   success: boolean;
@@ -56,34 +63,56 @@ interface Participant {
   submittedAt: string;
 }
 
+interface CreatedApiKey {
+  apiKey: string;
+  projectName: string;
+  description: string;
+  createdAt: string;
+  usage?: number;
+  participants?: number;
+  results?: number;
+}
+
 const API_URL = "http://localhost:3001/api";
 
 function TesteAPI() {
-  const [currentApiKey, setCurrentApiKey] = useState("");
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [notifications, setNotifications] = useState<
     { id: string; message: string; type: "success" | "error" | "info" }[]
   >([]);
 
-  // Estados para criação de chave
-  const [projectName, setProjectName] = useState("Teste React");
-  const [description, setDescription] = useState("Teste da API via React");
+  // Estados para painel principal
+  const [activeView, setActiveView] = useState<"create" | "manage" | "test">(
+    "create"
+  );
 
-  // Estados para participantes
+  // Estados para criação de chaves
+  const [createdKeys, setCreatedKeys] = useState<CreatedApiKey[]>([]);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+
+  // Estados para gerenciamento de chaves
+  const [selectedKey, setSelectedKey] = useState<CreatedApiKey | null>(null);
+  const [showKeyValues, setShowKeyValues] = useState<{
+    [key: string]: boolean;
+  }>({});
+
+  // Estados para teste de funcionalidades (quando uma chave for selecionada)
+  const [participants, setParticipants] = useState<Participant[]>([]);
   const [participantName, setParticipantName] = useState("João Silva");
   const [participantEmail, setParticipantEmail] = useState("joao@email.com");
   const [participantPhone, setParticipantPhone] = useState("(11) 99999-9999");
   const [participantCity, setParticipantCity] = useState("São Paulo");
-  const [participants, setParticipants] = useState<Participant[]>([]);
-
-  // Estados para sorteio
   const [winnersCount, setWinnersCount] = useState(1);
   const [lastDrawResult, setLastDrawResult] = useState<DrawResult | null>(null);
 
-  // Estados para dashboard
-  const [dashboardData, setDashboardData] = useState<ApiResponse | null>(null);
-  const [apiKeyValid, setApiKeyValid] = useState<boolean | null>(null);
-  const [keyValidationLoading, setKeyValidationLoading] = useState(false);
+  // Estados para pop-up de estatísticas
+  const [showStatsPopup, setShowStatsPopup] = useState(false);
+  const [statsData, setStatsData] = useState<ApiResponse | null>(null);
+
+  // Estados para participantes de teste
+  const [testParticipantsCount, setTestParticipantsCount] = useState(5);
 
   const showNotification = (
     message: string,
@@ -134,25 +163,52 @@ function TesteAPI() {
   };
 
   const generateApiKey = async () => {
-    if (!projectName.trim()) {
+    if (!newProjectName.trim()) {
       showNotification("Nome do projeto é obrigatório!", "error");
       return;
     }
 
     const result = await makeRequest("/generate-key", {
       method: "POST",
-      body: JSON.stringify({ projectName, description }),
+      body: JSON.stringify({
+        projectName: newProjectName,
+        description: newDescription || "Projeto criado via painel de API",
+      }),
     });
 
-    if (result.success) {
-      setCurrentApiKey(result.apiKey || "");
+    if (result.success && result.apiKey) {
+      const newKey: CreatedApiKey = {
+        apiKey: result.apiKey,
+        projectName: newProjectName,
+        description: newDescription || "Projeto criado via painel de API",
+        createdAt: new Date().toISOString(),
+      };
+
+      setCreatedKeys((prev) => [newKey, ...prev]);
+      setNewProjectName("");
+      setNewDescription("");
       showNotification("Chave API gerada com sucesso!", "success");
+      setActiveView("manage");
+    }
+  };
+
+  const selectKeyForTesting = (key: CreatedApiKey) => {
+    setSelectedKey(key);
+    setActiveView("test");
+    loadParticipants(key.apiKey);
+    showNotification(`Chave selecionada: ${key.projectName}`, "info");
+  };
+
+  const loadParticipants = async (apiKey: string) => {
+    const result = await makeRequest(`/participants/${apiKey}`);
+    if (result.success) {
+      setParticipants(result.participants || []);
     }
   };
 
   const addParticipant = async () => {
-    if (!currentApiKey) {
-      showNotification("Gere uma chave API primeiro!", "error");
+    if (!selectedKey) {
+      showNotification("Selecione uma chave API primeiro!", "error");
       return;
     }
 
@@ -161,7 +217,7 @@ function TesteAPI() {
       return;
     }
 
-    const result = await makeRequest(`/submit/${currentApiKey}`, {
+    const result = await makeRequest(`/submit/${selectedKey.apiKey}`, {
       method: "POST",
       body: JSON.stringify({
         nome: participantName,
@@ -173,83 +229,17 @@ function TesteAPI() {
 
     if (result.success) {
       showNotification("Participante adicionado com sucesso!", "success");
-      loadParticipants();
-    }
-  };
-
-  const addSampleParticipants = async () => {
-    if (!currentApiKey) {
-      showNotification("Gere uma chave API primeiro!", "error");
-      return;
-    }
-
-    const sampleParticipants = [
-      {
-        nome: "Maria Santos",
-        email: "maria@email.com",
-        telefone: "(11) 99999-1111",
-        cidade: "São Paulo",
-      },
-      {
-        nome: "Pedro Silva",
-        email: "pedro@email.com",
-        telefone: "(11) 99999-2222",
-        cidade: "Rio de Janeiro",
-      },
-      {
-        nome: "Ana Costa",
-        email: "ana@email.com",
-        telefone: "(11) 99999-3333",
-        cidade: "Belo Horizonte",
-      },
-      {
-        nome: "Carlos Lima",
-        email: "carlos@email.com",
-        telefone: "(11) 99999-4444",
-        cidade: "Salvador",
-      },
-      {
-        nome: "Julia Ferreira",
-        email: "julia@email.com",
-        telefone: "(11) 99999-5555",
-        cidade: "Curitiba",
-      },
-    ];
-
-    let added = 0;
-    for (const participant of sampleParticipants) {
-      const result = await makeRequest(`/submit/${currentApiKey}`, {
-        method: "POST",
-        body: JSON.stringify(participant),
-      });
-
-      if (result.success) added++;
-    }
-
-    showNotification(
-      `${added} participantes de exemplo adicionados!`,
-      "success"
-    );
-    loadParticipants();
-  };
-
-  const loadParticipants = async () => {
-    if (!currentApiKey) return;
-
-    const result = await makeRequest(`/participants/${currentApiKey}`);
-
-    if (result.success) {
-      setParticipants(result.participants || []);
+      loadParticipants(selectedKey.apiKey);
     }
   };
 
   const performDraw = async () => {
-    if (!currentApiKey) {
-      showNotification("Gere uma chave API primeiro!", "error");
+    if (!selectedKey) {
+      showNotification("Selecione uma chave API primeiro!", "error");
       return;
     }
 
-    const result = await makeRequest(`/draw/${currentApiKey}`, {
+    const result = await makeRequest(`/draw/${selectedKey.apiKey}`, {
       method: "POST",
       body: JSON.stringify({ quantity: winnersCount }),
     });
@@ -263,606 +253,907 @@ function TesteAPI() {
     }
   };
 
-  const loadDashboard = async () => {
-    const result = await makeRequest("/dashboard");
-
-    if (result.success) {
-      setDashboardData(result);
-      showNotification("Dashboard carregado!", "info");
-    }
-  };
-
-  const validateApiKey = async (apiKey: string) => {
-    if (!apiKey.trim()) {
-      setApiKeyValid(null);
-      return;
-    }
-
-    setKeyValidationLoading(true);
-    try {
-      const result = await makeRequest(`/validate-key/${apiKey}`);
-      setApiKeyValid(result.valid || false);
-
-      if (result.valid) {
-        showNotification("Chave API válida!", "success");
-        loadParticipants();
-      } else {
-        showNotification("Chave API inválida", "error");
-      }
-    } catch {
-      setApiKeyValid(false);
-    } finally {
-      setKeyValidationLoading(false);
-    }
-  };
-
-  const handleApiKeyChange = (newKey: string) => {
-    setCurrentApiKey(newKey);
-    if (newKey !== currentApiKey) {
-      setApiKeyValid(null);
+  const deleteKey = (keyToDelete: string) => {
+    setCreatedKeys((prev) => prev.filter((key) => key.apiKey !== keyToDelete));
+    if (selectedKey?.apiKey === keyToDelete) {
+      setSelectedKey(null);
       setParticipants([]);
       setLastDrawResult(null);
     }
+    showNotification("Chave API removida!", "info");
+  };
+
+  const toggleKeyVisibility = (apiKey: string) => {
+    setShowKeyValues((prev) => ({
+      ...prev,
+      [apiKey]: !prev[apiKey],
+    }));
+  };
+
+  const goToLiveRaffleWithKey = (key: CreatedApiKey) => {
+    navigate("/sorteio-live", {
+      state: {
+        apiKey: key.apiKey,
+        projectInfo: {
+          projectName: key.projectName,
+          description: key.description,
+          apiKey: key.apiKey,
+          createdAt: key.createdAt,
+          isActive: true,
+          usage: key.usage || 0,
+          participants: key.participants || 0,
+          results: key.results || 0,
+        },
+      },
+    });
+  };
+
+  // Função para carregar estatísticas
+  const loadStats = async () => {
+    const result = await makeRequest("/dashboard");
+    if (result.success) {
+      setStatsData(result);
+      setShowStatsPopup(true);
+    }
+  };
+
+  // Função para gerar participantes de teste com dados aleatórios
+  const generateTestParticipants = async () => {
+    if (!selectedKey) {
+      showNotification("Selecione uma chave API primeiro!", "error");
+      return;
+    }
+
+    // Validar limite de 5000 participantes
+    if (testParticipantsCount > 5000) {
+      showNotification(
+        "Limite máximo de 5000 participantes de teste!",
+        "error"
+      );
+      return;
+    }
+
+    if (testParticipantsCount < 1) {
+      showNotification(
+        "Quantidade deve ser pelo menos 1 participante!",
+        "error"
+      );
+      return;
+    }
+
+    const nomes = [
+      "Ana",
+      "Bruno",
+      "Carlos",
+      "Diana",
+      "Eduardo",
+      "Fernanda",
+      "Gabriel",
+      "Helena",
+      "Igor",
+      "Julia",
+      "Leonardo",
+      "Maria",
+      "Nicolas",
+      "Olivia",
+      "Paulo",
+      "Quitéria",
+      "Rafael",
+      "Sofia",
+      "Thiago",
+      "Ursula",
+      "Vicente",
+      "Wanda",
+      "Xavier",
+      "Yasmin",
+      "Zeca",
+    ];
+
+    const sobrenomes = [
+      "Silva",
+      "Santos",
+      "Oliveira",
+      "Souza",
+      "Rodrigues",
+      "Ferreira",
+      "Alves",
+      "Pereira",
+      "Lima",
+      "Gomes",
+      "Costa",
+      "Ribeiro",
+      "Martins",
+      "Carvalho",
+      "Almeida",
+      "Lopes",
+      "Soares",
+      "Fernandes",
+      "Vieira",
+      "Barbosa",
+      "Rocha",
+      "Dias",
+      "Monteiro",
+      "Cardoso",
+    ];
+
+    const cidades = [
+      "São Paulo",
+      "Rio de Janeiro",
+      "Belo Horizonte",
+      "Salvador",
+      "Brasília",
+      "Fortaleza",
+      "Curitiba",
+      "Recife",
+      "Porto Alegre",
+      "Manaus",
+      "Belém",
+      "Goiânia",
+      "Guarulhos",
+      "Campinas",
+      "São Luis",
+      "São Gonçalo",
+      "Maceió",
+      "Duque de Caxias",
+      "Natal",
+      "Teresina",
+      "Campo Grande",
+      "Nova Iguaçu",
+    ];
+
+    const dominios = [
+      "gmail.com",
+      "hotmail.com",
+      "yahoo.com.br",
+      "outlook.com",
+      "uol.com.br",
+    ];
+
+    let added = 0;
+    const promises = [];
+
+    for (let i = 0; i < testParticipantsCount; i++) {
+      const nome = nomes[Math.floor(Math.random() * nomes.length)];
+      const sobrenome =
+        sobrenomes[Math.floor(Math.random() * sobrenomes.length)];
+      const nomeCompleto = `${nome} ${sobrenome}`;
+      const dominio = dominios[Math.floor(Math.random() * dominios.length)];
+      const email = `${nome.toLowerCase()}.${sobrenome.toLowerCase()}${Math.floor(
+        Math.random() * 999
+      )}@${dominio}`;
+      const cidade = cidades[Math.floor(Math.random() * cidades.length)];
+      const ddd = Math.floor(Math.random() * 90) + 11; // DDD entre 11 e 99
+      const telefone = `(${ddd}) 9${Math.floor(
+        Math.random() * 9000 + 1000
+      )}-${Math.floor(Math.random() * 9000 + 1000)}`;
+
+      const participantData = {
+        nome: nomeCompleto,
+        email: email,
+        telefone: telefone,
+        cidade: cidade,
+      };
+
+      promises.push(
+        makeRequest(`/submit/${selectedKey.apiKey}`, {
+          method: "POST",
+          body: JSON.stringify(participantData),
+        }).then((result) => {
+          if (result.success) added++;
+        })
+      );
+    }
+
+    await Promise.all(promises);
+
+    showNotification(`${added} participantes de teste adicionados!`, "success");
+    loadParticipants(selectedKey.apiKey);
   };
 
   return (
     <div className="min-h-screen p-6">
       {/* Notifications */}
-      <div className="fixed top-6 right-6 z-50 space-y-2">
-        {notifications.map((notification) => (
-          <motion.div
-            key={notification.id}
-            initial={{ opacity: 0, x: 100 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 100 }}
-            className={`px-4 py-3 rounded-lg shadow-lg backdrop-blur-sm ${
-              notification.type === "success"
-                ? "bg-green-500/20 border border-green-500/30 text-green-100"
-                : notification.type === "error"
-                ? "bg-red-500/20 border border-red-500/30 text-red-100"
-                : "bg-blue-500/20 border border-blue-500/30 text-blue-100"
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              {notification.type === "success" && <CheckCircle size={20} />}
-              {notification.type === "error" && <Warning size={20} />}
-              {notification.type === "info" && <Info size={20} />}
-              <span className="text-sm font-medium">
-                {notification.message}
-              </span>
-            </div>
-          </motion.div>
-        ))}
+      <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 space-y-2">
+        <AnimatePresence>
+          {notifications.map((notification) => (
+            <motion.div
+              key={notification.id}
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className={`px-4 py-3 rounded-lg shadow-lg backdrop-blur-sm ${
+                notification.type === "success"
+                  ? "bg-green-500/20 border border-green-500/30 text-green-100"
+                  : notification.type === "error"
+                  ? "bg-red-500/20 border border-red-500/30 text-red-100"
+                  : "bg-blue-500/20 border border-blue-500/30 text-blue-100"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {notification.type === "success" && <CheckCircle size={20} />}
+                {notification.type === "error" && <Warning size={20} />}
+                {notification.type === "info" && <Info size={20} />}
+                <span className="text-sm font-medium">
+                  {notification.message}
+                </span>
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
 
+      {/* Pop-up de Estatísticas */}
+      <AnimatePresence>
+        {showStatsPopup && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+            onClick={() => setShowStatsPopup(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              onClick={(e) => e.stopPropagation()}
+              className="corporate-bg rounded-2xl p-8 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <ChartLine size={24} className="corporate-accent" />
+                  <h2 className="text-2xl font-bold corporate-primary">
+                    Estatísticas Gerais
+                  </h2>
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setShowStatsPopup(false)}
+                  className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 transition-colors"
+                >
+                  <X size={20} />
+                </motion.button>
+              </div>
+
+              {statsData && (
+                <div className="space-y-4">
+                  <div className="bg-black/20 rounded-xl p-4 text-center">
+                    <div className="text-3xl font-bold corporate-accent mb-2">
+                      {statsData.projects?.length || 0}
+                    </div>
+                    <div className="corporate-secondary">Total de Projetos</div>
+                  </div>
+
+                  {statsData.projects && statsData.projects.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold corporate-primary mb-4">
+                        Projetos Ativos
+                      </h3>
+                      <div className="space-y-3 max-h-64 overflow-y-auto">
+                        {statsData.projects.map((project: ProjectInfo) => (
+                          <div
+                            key={project.apiKey}
+                            className="bg-black/20 rounded-lg p-4"
+                          >
+                            <p className="font-semibold text-lg corporate-primary mb-2">
+                              {project.projectName}
+                            </p>
+                            <p className="text-sm corporate-secondary mb-3">
+                              {project.description}
+                            </p>
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                              <div>
+                                <div className="text-xl font-bold corporate-accent">
+                                  {project.participants}
+                                </div>
+                                <div className="text-xs corporate-secondary">
+                                  Participantes
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-xl font-bold corporate-accent">
+                                  {project.results}
+                                </div>
+                                <div className="text-xs corporate-secondary">
+                                  Sorteios
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-xl font-bold corporate-accent">
+                                  {project.usage}
+                                </div>
+                                <div className="text-xs corporate-secondary">
+                                  Usos da API
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!statsData && (
+                <div className="text-center py-8">
+                  <ChartLine
+                    size={64}
+                    className="corporate-secondary/50 mx-auto mb-4"
+                  />
+                  <p className="corporate-secondary">Nenhum dado encontrado</p>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="max-w-6xl mx-auto">
+        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-8"
         >
           <h1 className="text-4xl font-bold corporate-primary mb-3 flex items-center justify-center gap-3">
-            <Flask size={40} className="corporate-accent" />
-            Teste da API do Sorteador
+            <Key size={40} className="corporate-accent" />
+            Painel de API
           </h1>
           <p className="corporate-secondary">
-            Interface React para testar todas as funcionalidades da API
+            Crie e gerencie suas chaves de API para o sistema de sorteios
           </p>
-
-          {/* Campo para colar chave API existente */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-6 max-w-2xl mx-auto"
-          >
-            <div className="corporate-bg rounded-xl p-4">
-              <label className="flex items-center gap-2 corporate-secondary font-semibold mb-2 text-sm">
-                <Lightbulb size={16} className="corporate-accent" />
-                Já tem uma chave API? Cole aqui para testar:
-              </label>
-              <div className="flex gap-2">
-                <div className="flex-1 relative">
-                  <input
-                    type="text"
-                    value={currentApiKey}
-                    onChange={(e) => handleApiKeyChange(e.target.value)}
-                    className={`w-full text-sm font-mono pr-8 ${
-                      apiKeyValid === true
-                        ? "border-green-500/50 bg-green-500/5"
-                        : apiKeyValid === false
-                        ? "border-red-500/50 bg-red-500/5"
-                        : ""
-                    }`}
-                    placeholder="Cole sua chave API aqui..."
-                  />
-                  {currentApiKey && (
-                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                      {keyValidationLoading ? (
-                        <div className="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
-                      ) : apiKeyValid === true ? (
-                        <CheckCircle size={16} className="text-green-400" />
-                      ) : apiKeyValid === false ? (
-                        <Warning size={16} className="text-red-400" />
-                      ) : null}
-                    </div>
-                  )}
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => validateApiKey(currentApiKey)}
-                  disabled={!currentApiKey.trim() || keyValidationLoading}
-                  className="px-4 py-2 bg-accent/20 hover:bg-accent/30 text-accent border border-accent/30 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50"
-                >
-                  {keyValidationLoading ? "Validando..." : "Validar"}
-                </motion.button>
-              </div>
-
-              {apiKeyValid === true && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="mt-3 p-3 bg-green-500/10 border border-green-500/20 rounded-lg"
-                >
-                  <div className="flex items-center gap-2">
-                    <CheckCircle size={16} className="text-green-400" />
-                    <span className="text-green-400 text-sm font-semibold flex items-center gap-2">
-                      <CheckCircle size={16} />
-                      Chave API válida! Pronto para testar.
-                    </span>
-                  </div>
-                </motion.div>
-              )}
-
-              {apiKeyValid === false && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg"
-                >
-                  <div className="flex items-center gap-2">
-                    <Warning size={16} className="text-red-400" />
-                    <span className="text-red-400 text-sm font-semibold">
-                      Chave API inválida. Verifique se está correta.
-                    </span>
-                  </div>
-                </motion.div>
-              )}
-            </div>
-          </motion.div>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Seção 1: Gerar Chave API */}
+        {/* Navigation Tabs */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex justify-center mb-8"
+        >
+          <div className="flex flex-wrap bg-black/20 rounded-xl p-1 gap-1 sm:gap-0">
+            {[
+              { id: "create", label: "Criar Chave", icon: Plus },
+              { id: "manage", label: "Gerenciar", icon: Key },
+              {
+                id: "test",
+                label: "Testar",
+                icon: Flask,
+                disabled: !selectedKey,
+              },
+            ].map((tab) => (
+              <motion.button
+                key={tab.id}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setActiveView(tab.id as typeof activeView)}
+                disabled={tab.disabled}
+                className={`px-4 sm:px-6 py-3 rounded-lg font-semibold flex items-center gap-2 transition-all text-sm sm:text-base ${
+                  activeView === tab.id
+                    ? "bg-accent/20 text-accent border border-accent/30"
+                    : tab.disabled
+                    ? "corporate-secondary/50 cursor-not-allowed"
+                    : "corporate-secondary hover:bg-white/5"
+                }`}
+              >
+                <tab.icon size={20} />
+                {tab.label}
+              </motion.button>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Create API Key View */}
+        {activeView === "create" && (
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="corporate-bg rounded-2xl p-6"
+            className="max-w-2xl mx-auto"
           >
-            <div className="flex items-center gap-3 mb-6">
-              <Key size={24} className="corporate-accent" />
-              <h2 className="text-xl font-bold corporate-primary">
-                1. Gerar Chave API
-              </h2>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block corporate-secondary font-semibold mb-2">
-                  Nome do Projeto
-                </label>
-                <input
-                  type="text"
-                  value={projectName}
-                  onChange={(e) => setProjectName(e.target.value)}
-                  className="w-full"
-                  placeholder="Ex: Sorteio Halloween 2024"
-                />
+            <div className="corporate-bg rounded-2xl p-4 sm:p-6 lg:p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <Plus size={24} className="corporate-accent" />
+                <h2 className="text-xl sm:text-2xl font-bold corporate-primary">
+                  Criar Nova Chave API
+                </h2>
               </div>
 
-              <div>
-                <label className="block corporate-secondary font-semibold mb-2">
-                  Descrição
-                </label>
-                <input
-                  type="text"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full"
-                  placeholder="Descrição do projeto"
-                />
-              </div>
+              <div className="space-y-6">
+                <div>
+                  <label className="block corporate-secondary font-semibold mb-3 text-lg">
+                    Nome do Projeto *
+                  </label>
+                  <input
+                    type="text"
+                    value={newProjectName}
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    className="w-full text-lg"
+                    placeholder="Ex: Sorteio Halloween 2024"
+                  />
+                </div>
 
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={generateApiKey}
-                disabled={loading}
-                className="modern-btn w-full justify-center"
-              >
-                <Key size={20} />
-                {loading ? "Gerando..." : "Gerar Chave API"}
-              </motion.button>
+                <div>
+                  <label className="block corporate-secondary font-semibold mb-3 text-lg">
+                    Descrição (Opcional)
+                  </label>
+                  <textarea
+                    value={newDescription}
+                    onChange={(e) => setNewDescription(e.target.value)}
+                    className="w-full h-24 resize-none"
+                    placeholder="Descreva o propósito do projeto..."
+                  />
+                </div>
 
-              {currentApiKey && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="bg-green-500/10 border border-green-500/20 rounded-lg p-4"
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={generateApiKey}
+                  disabled={loading || !newProjectName.trim()}
+                  className="modern-btn-enhanced w-full justify-center text-xl py-4 disabled:opacity-50"
                 >
-                  <p className="corporate-secondary text-sm mb-2 font-semibold">
-                    🔑 Sua Chave API:
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 bg-black/30 px-3 py-2 rounded text-xs font-mono break-all">
-                      {currentApiKey}
-                    </code>
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => copyToClipboard(currentApiKey)}
-                      className="p-2 rounded-lg bg-accent/20 hover:bg-accent/30 transition-colors"
-                      title="Copiar chave"
-                    >
-                      <Copy size={16} className="corporate-accent" />
-                    </motion.button>
+                  <Key size={24} />
+                  {loading ? "Gerando..." : "Criar Chave API"}
+                </motion.button>
+
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+                  <div className="flex items-start gap-3">
+                    <Lightbulb size={20} className="text-blue-400 mt-0.5" />
+                    <div>
+                      <p className="text-blue-400 font-semibold mb-2">Dica</p>
+                      <p className="text-blue-300/80 text-sm">
+                        Após criar sua chave, você poderá gerenciá-la na aba
+                        "Gerenciar" e testá-la na aba "Testar". Você também pode
+                        usar a chave diretamente no Sorteio ao Vivo.
+                      </p>
+                    </div>
                   </div>
-                </motion.div>
-              )}
+                </div>
+              </div>
             </div>
           </motion.div>
+        )}
 
-          {/* Seção 2: Gerenciar Participantes */}
+        {/* Manage API Keys View */}
+        {activeView === "manage" && (
           <motion.div
-            initial={{ opacity: 0, x: 20 }}
+            initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="corporate-bg rounded-2xl p-6"
+            className="max-w-4xl mx-auto"
           >
-            <div className="flex items-center gap-3 mb-6">
-              <Users size={24} className="corporate-accent" />
-              <h2 className="text-xl font-bold corporate-primary">
-                2. Participantes
-              </h2>
-            </div>
-
-            <div className="space-y-4">
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mb-4">
-                <p className="text-blue-400 text-sm font-semibold flex items-center gap-2">
-                  <Info size={16} />
-                  Simule um formulário de cadastro
-                </p>
-                <p className="text-blue-300/70 text-xs mt-1">
-                  Preencha os dados abaixo como se fosse um participante se
-                  inscrevendo para o sorteio
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block corporate-secondary font-semibold mb-1 text-sm">
-                    Nome *
-                  </label>
-                  <input
-                    type="text"
-                    value={participantName}
-                    onChange={(e) => setParticipantName(e.target.value)}
-                    className="w-full text-sm"
-                    placeholder="Nome completo"
-                    required
-                  />
+            <div className="corporate-bg rounded-2xl p-4 sm:p-6 lg:p-8">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
+                <div className="flex items-center gap-3">
+                  <Key size={24} className="corporate-accent" />
+                  <h2 className="text-xl sm:text-2xl font-bold corporate-primary">
+                    Minhas Chaves API
+                  </h2>
                 </div>
-
-                <div>
-                  <label className="block corporate-secondary font-semibold mb-1 text-sm">
-                    Email *
-                  </label>
-                  <input
-                    type="email"
-                    value={participantEmail}
-                    onChange={(e) => setParticipantEmail(e.target.value)}
-                    className="w-full text-sm"
-                    placeholder="email@exemplo.com"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block corporate-secondary font-semibold mb-1 text-sm">
-                    Telefone
-                  </label>
-                  <input
-                    type="tel"
-                    value={participantPhone}
-                    onChange={(e) => setParticipantPhone(e.target.value)}
-                    className="w-full text-sm"
-                    placeholder="(11) 99999-9999"
-                  />
-                </div>
-
-                <div>
-                  <label className="block corporate-secondary font-semibold mb-1 text-sm">
-                    Cidade
-                  </label>
-                  <input
-                    type="text"
-                    value={participantCity}
-                    onChange={(e) => setParticipantCity(e.target.value)}
-                    className="w-full text-sm"
-                    placeholder="Cidade"
-                  />
+                <div className="text-sm corporate-secondary">
+                  {createdKeys.length} chave
+                  {createdKeys.length !== 1 ? "s" : ""} criada
+                  {createdKeys.length !== 1 ? "s" : ""}
                 </div>
               </div>
 
-              <div className="flex gap-2">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={addParticipant}
-                  disabled={
-                    loading ||
-                    !currentApiKey ||
-                    !participantName.trim() ||
-                    !participantEmail.trim()
-                  }
-                  className="modern-btn flex-1 justify-center text-sm disabled:opacity-50"
-                >
-                  <Plus size={18} />
-                  {loading ? "Enviando..." : "Enviar Inscrição"}
-                </motion.button>
-
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={addSampleParticipants}
-                  disabled={loading || !currentApiKey}
-                  className="flex items-center gap-2 px-4 py-2 bg-secondary/20 hover:bg-secondary/30 text-secondary border border-secondary/30 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50"
-                  title="Adiciona 5 participantes de exemplo"
-                >
-                  <Users size={18} />
-                  Demo
-                </motion.button>
-              </div>
-
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={loadParticipants}
-                disabled={loading || !currentApiKey}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50"
-              >
-                <Users size={18} />
-                🔄 Atualizar Lista ({participants.length} participantes)
-              </motion.button>
-
-              {!currentApiKey && (
-                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
-                  <p className="text-yellow-400 text-sm font-semibold flex items-center gap-2">
-                    <Warning size={16} />
-                    Chave API necessária
+              {createdKeys.length === 0 ? (
+                <div className="text-center py-12">
+                  <Key
+                    size={64}
+                    className="corporate-secondary/50 mx-auto mb-4"
+                  />
+                  <h3 className="text-xl font-semibold corporate-primary mb-2">
+                    Nenhuma chave criada ainda
+                  </h3>
+                  <p className="corporate-secondary mb-6">
+                    Crie sua primeira chave API para começar a usar o sistema de
+                    sorteios
                   </p>
-                  <p className="text-yellow-300/70 text-xs mt-1">
-                    Gere uma chave API primeiro ou cole uma existente para
-                    testar o formulário
-                  </p>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setActiveView("create")}
+                    className="modern-btn-enhanced"
+                  >
+                    <Plus size={20} />
+                    Criar Primeira Chave
+                  </motion.button>
                 </div>
-              )}
-
-              {participants.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="border-t border-primary/20 pt-4"
-                >
-                  <p className="corporate-secondary text-sm font-semibold mb-3 flex items-center gap-2">
-                    <Users size={16} />
-                    Participantes Inscritos:
-                  </p>
-                  <div className="max-h-48 overflow-y-auto space-y-2">
-                    {participants.map((participant) => (
+              ) : (
+                <div className="grid gap-4">
+                  <AnimatePresence>
+                    {createdKeys.map((key, index) => (
                       <motion.div
-                        key={participant.id}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="flex items-center justify-between bg-black/20 rounded-lg p-3 hover:bg-black/30 transition-colors"
+                        key={key.apiKey}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="bg-black/20 border border-white/10 rounded-xl p-6"
                       >
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm corporate-primary truncate">
-                            {participant.nome}
-                          </p>
-                          <p className="text-xs corporate-secondary truncate">
-                            {participant.email}
-                          </p>
-                          {participant.telefone && (
-                            <p className="text-xs corporate-secondary/60">
-                              {participant.telefone}
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1">
+                            <h3 className="text-xl font-bold corporate-primary mb-1">
+                              {key.projectName}
+                            </h3>
+                            <p className="corporate-secondary text-sm mb-3">
+                              {key.description}
                             </p>
-                          )}
+                            <p className="text-xs corporate-secondary/60">
+                              Criada em:{" "}
+                              {new Date(key.createdAt).toLocaleString("pt-BR")}
+                            </p>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-xs corporate-secondary/60">
-                            {participant.cidade || "N/A"}
+
+                        <div className="mb-4">
+                          <label className="block text-sm font-semibold corporate-secondary mb-2">
+                            Chave API:
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <code className="flex-1 bg-black/40 px-3 py-2 rounded text-xs font-mono break-all">
+                              {showKeyValues[key.apiKey]
+                                ? key.apiKey
+                                : "•".repeat(40) + key.apiKey.slice(-8)}
+                            </code>
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              onClick={() => toggleKeyVisibility(key.apiKey)}
+                              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+                              title={
+                                showKeyValues[key.apiKey]
+                                  ? "Ocultar"
+                                  : "Mostrar"
+                              }
+                            >
+                              {showKeyValues[key.apiKey] ? (
+                                <EyeSlash size={16} />
+                              ) : (
+                                <Eye size={16} />
+                              )}
+                            </motion.button>
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              onClick={() => copyToClipboard(key.apiKey)}
+                              className="p-2 rounded-lg bg-accent/20 hover:bg-accent/30 transition-colors"
+                              title="Copiar chave"
+                            >
+                              <Copy size={16} className="corporate-accent" />
+                            </motion.button>
                           </div>
-                          <div className="text-xs corporate-secondary/40">
-                            {new Date(participant.submittedAt).toLocaleString(
-                              "pt-BR"
-                            )}
-                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => selectKeyForTesting(key)}
+                            className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-accent/20 hover:bg-accent/30 text-accent border border-accent/30 rounded-lg font-semibold transition-colors"
+                          >
+                            <Play size={16} />
+                            Testar
+                          </motion.button>
+
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => goToLiveRaffleWithKey(key)}
+                            className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-secondary/20 hover:bg-secondary/30 text-secondary border border-secondary/30 rounded-lg font-semibold transition-colors"
+                          >
+                            <ArrowRight size={16} />
+                            Sorteio ao Vivo
+                          </motion.button>
+
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => deleteKey(key.apiKey)}
+                            className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 rounded-lg font-semibold transition-colors"
+                            title="Remover chave"
+                          >
+                            <Trash size={16} />
+                          </motion.button>
                         </div>
                       </motion.div>
                     ))}
-                  </div>
-                </motion.div>
+                  </AnimatePresence>
+                </div>
               )}
             </div>
           </motion.div>
+        )}
 
-          {/* Seção 3: Fazer Sorteio */}
+        {/* Test API Key View */}
+        {activeView === "test" && selectedKey && (
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-            className="corporate-bg rounded-2xl p-6"
+            className="max-w-6xl mx-auto"
           >
-            <div className="flex items-center gap-3 mb-6">
-              <Trophy size={24} className="corporate-accent" />
-              <h2 className="text-xl font-bold corporate-primary">
-                3. Fazer Sorteio
-              </h2>
+            <div className="mb-6 corporate-bg rounded-xl p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Flask size={20} className="corporate-accent" />
+                  <span className="font-semibold corporate-primary">
+                    Testando: {selectedKey.projectName}
+                  </span>
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setActiveView("manage")}
+                  className="text-sm px-3 py-1 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                >
+                  ← Voltar
+                </motion.button>
+              </div>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block corporate-secondary font-semibold mb-2">
-                  Quantidade de Ganhadores
-                </label>
-                <select
-                  value={winnersCount}
-                  onChange={(e) => setWinnersCount(Number(e.target.value))}
-                  className="w-full"
-                >
-                  <option value={1}>1 Ganhador</option>
-                  <option value={2}>2 Ganhadores</option>
-                  <option value={3}>3 Ganhadores</option>
-                  <option value={5}>5 Ganhadores</option>
-                  <option value={10}>10 Ganhadores</option>
-                </select>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              {/* Add Participants */}
+              <div className="corporate-bg rounded-2xl p-4 sm:p-6 order-1">
+                <div className="flex items-center gap-3 mb-6">
+                  <Users size={24} className="corporate-accent" />
+                  <h3 className="text-lg sm:text-xl font-bold corporate-primary">
+                    Adicionar Participantes
+                  </h3>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block corporate-secondary font-semibold mb-1 text-sm">
+                        Nome *
+                      </label>
+                      <input
+                        type="text"
+                        value={participantName}
+                        onChange={(e) => setParticipantName(e.target.value)}
+                        className="w-full text-sm"
+                        placeholder="Nome completo"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block corporate-secondary font-semibold mb-1 text-sm">
+                        Email *
+                      </label>
+                      <input
+                        type="email"
+                        value={participantEmail}
+                        onChange={(e) => setParticipantEmail(e.target.value)}
+                        className="w-full text-sm"
+                        placeholder="email@exemplo.com"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block corporate-secondary font-semibold mb-1 text-sm">
+                        Telefone
+                      </label>
+                      <input
+                        type="tel"
+                        value={participantPhone}
+                        onChange={(e) => setParticipantPhone(e.target.value)}
+                        className="w-full text-sm"
+                        placeholder="(11) 99999-9999"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block corporate-secondary font-semibold mb-1 text-sm">
+                        Cidade
+                      </label>
+                      <input
+                        type="text"
+                        value={participantCity}
+                        onChange={(e) => setParticipantCity(e.target.value)}
+                        className="w-full text-sm"
+                        placeholder="Cidade"
+                      />
+                    </div>
+                  </div>
+
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={addParticipant}
+                    disabled={
+                      loading ||
+                      !participantName.trim() ||
+                      !participantEmail.trim()
+                    }
+                    className="modern-btn w-full justify-center text-sm disabled:opacity-50"
+                  >
+                    <Plus size={18} />
+                    {loading ? "Enviando..." : "Adicionar Participante"}
+                  </motion.button>
+
+                  {/* Seção de Participantes de Teste */}
+                  <div className="border-t border-white/10 pt-4">
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Flask size={20} className="text-blue-400" />
+                        <p className="text-blue-400 font-semibold">
+                          Participantes de Teste
+                        </p>
+                      </div>
+                      <p className="text-blue-300/80 text-sm mb-3">
+                        Gere participantes com dados aleatórios para testar o
+                        sorteio
+                      </p>
+
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <label className="block text-sm font-semibold text-blue-300 mb-2">
+                            Quantidade:
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="5000"
+                            value={testParticipantsCount}
+                            onChange={(e) =>
+                              setTestParticipantsCount(
+                                Math.max(
+                                  1,
+                                  Math.min(5000, Number(e.target.value))
+                                )
+                              )
+                            }
+                            className="w-full text-sm bg-blue-500/10 border border-blue-400/30 rounded-lg px-3 py-2"
+                          />
+                          <p className="text-xs text-blue-400/70 mt-1">
+                            Máximo: 5000 participantes
+                          </p>
+                        </div>
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={generateTestParticipants}
+                          disabled={loading}
+                          className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 rounded-lg font-semibold transition-colors disabled:opacity-50 text-sm"
+                        >
+                          {loading ? "Gerando..." : "Gerar"}
+                        </motion.button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-center flex gap-2">
+                    <div className="flex-1">
+                      <p className="text-sm corporate-secondary mb-2">
+                        Participantes: {participants.length}
+                      </p>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => loadParticipants(selectedKey.apiKey)}
+                        disabled={loading}
+                        className="w-full text-sm px-4 py-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 rounded-lg font-semibold transition-colors disabled:opacity-50"
+                      >
+                        <Users size={16} className="inline mr-2" />
+                        Atualizar
+                      </motion.button>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm corporate-secondary mb-2">
+                        Estatísticas Gerais
+                      </p>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={loadStats}
+                        disabled={loading}
+                        className="w-full text-sm px-4 py-2 bg-accent/20 hover:bg-accent/30 text-accent border border-accent/30 rounded-lg font-semibold transition-colors disabled:opacity-50"
+                      >
+                        <ChartLine size={16} className="inline mr-2" />
+                        Ver Stats
+                      </motion.button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={performDraw}
-                disabled={
-                  loading || !currentApiKey || participants.length === 0
-                }
-                className="modern-btn w-full justify-center"
-              >
-                <Trophy size={20} />
-                {loading ? "Sorteando..." : "Fazer Sorteio"}
-              </motion.button>
+              {/* Make Draw */}
+              <div className="corporate-bg rounded-2xl p-4 sm:p-6 order-2">
+                <div className="flex items-center gap-3 mb-6">
+                  <Trophy size={24} className="corporate-accent" />
+                  <h3 className="text-lg sm:text-xl font-bold corporate-primary">
+                    Fazer Sorteio
+                  </h3>
+                </div>
 
-              {lastDrawResult && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="bg-accent/10 border border-accent/20 rounded-lg p-4"
-                >
-                  <p className="corporate-secondary text-sm mb-3 font-semibold">
-                    🏆 Resultado do Sorteio:
-                  </p>
-                  <div className="space-y-2">
-                    {lastDrawResult.winners.map(
-                      (winner: Participant, index: number) => (
-                        <div
-                          key={winner.id}
-                          className="flex items-center justify-between bg-black/30 rounded-lg p-3"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="w-6 h-6 rounded-full bg-accent flex items-center justify-center text-black text-xs font-bold">
-                              {index + 1}
-                            </span>
-                            <div>
-                              <p className="font-semibold text-sm corporate-primary">
-                                {winner.nome}
-                              </p>
-                              <p className="text-xs corporate-secondary">
-                                {winner.email}
-                              </p>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block corporate-secondary font-semibold mb-2">
+                      Quantidade de Ganhadores
+                    </label>
+                    <select
+                      value={winnersCount}
+                      onChange={(e) => setWinnersCount(Number(e.target.value))}
+                      className="w-full"
+                      disabled={participants.length === 0}
+                    >
+                      {[1, 2, 3, 5, 10]
+                        .filter((num) => num <= participants.length)
+                        .map((num) => (
+                          <option key={num} value={num}>
+                            {num} Ganhador{num !== 1 ? "es" : ""}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={performDraw}
+                    disabled={loading || participants.length === 0}
+                    className="modern-btn w-full justify-center disabled:opacity-50"
+                  >
+                    <Trophy size={20} />
+                    {loading ? "Sorteando..." : "Fazer Sorteio"}
+                  </motion.button>
+
+                  {participants.length === 0 && (
+                    <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
+                      <p className="text-yellow-400 text-sm font-semibold flex items-center gap-2">
+                        <Warning size={16} />
+                        Adicione participantes primeiro
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {lastDrawResult && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="mt-6 bg-accent/10 border border-accent/20 rounded-lg p-4"
+                  >
+                    <p className="corporate-secondary text-sm mb-3 font-semibold">
+                      🏆 Resultado do Sorteio:
+                    </p>
+                    <div className="space-y-2">
+                      {lastDrawResult.winners.map(
+                        (winner: Participant, index: number) => (
+                          <div
+                            key={winner.id}
+                            className="flex items-center justify-between bg-black/30 rounded-lg p-3"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="w-6 h-6 rounded-full bg-accent flex items-center justify-center text-black text-xs font-bold">
+                                {index + 1}
+                              </span>
+                              <div>
+                                <p className="font-semibold text-sm corporate-primary">
+                                  {winner.nome}
+                                </p>
+                                <p className="text-xs corporate-secondary">
+                                  {winner.email}
+                                </p>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )
-                    )}
-                  </div>
-                  <p className="text-xs corporate-secondary/60 mt-3 text-center">
-                    Total de participantes: {lastDrawResult.totalParticipants}
-                  </p>
-                </motion.div>
-              )}
+                        )
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </div>
             </div>
           </motion.div>
+        )}
 
-          {/* Seção 4: Dashboard */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-            className="corporate-bg rounded-2xl p-6"
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <ChartLine size={24} className="corporate-accent" />
-              <h2 className="text-xl font-bold corporate-primary">
-                4. Dashboard
-              </h2>
-            </div>
-
-            <div className="space-y-4">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={loadDashboard}
-                disabled={loading}
-                className="modern-btn w-full justify-center"
-              >
-                <ChartLine size={20} />
-                {loading ? "Carregando..." : "Carregar Dashboard"}
-              </motion.button>
-
-              {dashboardData && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="space-y-3"
-                >
-                  <p className="corporate-secondary text-sm font-semibold">
-                    📊 Projetos Ativos: {dashboardData.projects?.length || 0}
-                  </p>
-
-                  {dashboardData.projects
-                    ?.slice(0, 3)
-                    .map((project: ProjectInfo) => (
-                      <div
-                        key={project.apiKey}
-                        className="bg-black/20 rounded-lg p-3"
-                      >
-                        <p className="font-semibold text-sm corporate-primary">
-                          {project.projectName}
-                        </p>
-                        <div className="grid grid-cols-3 gap-4 mt-2 text-xs">
-                          <div className="text-center">
-                            <p className="corporate-accent font-bold">
-                              {project.participants}
-                            </p>
-                            <p className="corporate-secondary/60">
-                              Participantes
-                            </p>
-                          </div>
-                          <div className="text-center">
-                            <p className="corporate-accent font-bold">
-                              {project.results}
-                            </p>
-                            <p className="corporate-secondary/60">Sorteios</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="corporate-accent font-bold">
-                              {project.usage}
-                            </p>
-                            <p className="corporate-secondary/60">Usos</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                </motion.div>
-              )}
-            </div>
-          </motion.div>
-        </div>
-
+        {/* Footer */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="mt-8 text-center"
+          className="mt-12 text-center"
         >
           <p className="corporate-secondary/70 text-sm">
             API rodando em:{" "}

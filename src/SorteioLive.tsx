@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Trophy,
-  Users,
+  // Users,
   Sparkle,
   Timer,
   ArrowLeft,
@@ -55,6 +55,7 @@ function SorteioLive({
   );
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [winners, setWinners] = useState<Participant[]>([]);
+  const [winnersHistory, setWinnersHistory] = useState<Participant[]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawComplete, setDrawComplete] = useState(false);
   const [winnersCount, setWinnersCount] = useState(1);
@@ -67,6 +68,16 @@ function SorteioLive({
   const [loading, setLoading] = useState(false);
   const [tempApiKey, setTempApiKey] = useState("");
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
+
+  // Estados para pop-up de estatísticas
+  const [showStatsPopup, setShowStatsPopup] = useState(false);
+  const [statsData, setStatsData] = useState<{
+    projects?: ProjectInfo[];
+    project?: ProjectInfo;
+    currentParticipants?: number;
+    totalWinners?: number;
+    availableParticipants?: number;
+  } | null>(null);
 
   const makeRequest = async (endpoint: string, options?: RequestInit) => {
     try {
@@ -146,35 +157,55 @@ function SorteioLive({
     setCurrentAnimation(null);
     setAnimationStep(0);
 
+    // Filtrar participantes que ainda não ganharam
+    const availableParticipants = participants.filter(
+      (participant) =>
+        !winnersHistory.some((winner) => winner.id === participant.id)
+    );
+
+    // Se não há participantes disponíveis, usar todos
+    const eligibleParticipants =
+      availableParticipants.length > 0 ? availableParticipants : participants;
+
     // Animação de embaralhamento
     const shuffleSteps = 20;
     for (let i = 0; i < shuffleSteps; i++) {
       const randomParticipant =
-        participants[Math.floor(Math.random() * participants.length)];
+        eligibleParticipants[
+          Math.floor(Math.random() * eligibleParticipants.length)
+        ];
       setCurrentAnimation(randomParticipant);
       setAnimationStep(i);
       await new Promise((resolve) => setTimeout(resolve, 150 - i * 5)); // Acelera gradualmente
     }
 
     try {
-      // Fazer o sorteio real
-      const result = await makeRequest(`/draw/${apiKey}`, {
-        method: "POST",
-        body: JSON.stringify({ quantity: winnersCount }),
-      });
+      // Fazer sorteio local para evitar repetição
+      const shuffled = [...eligibleParticipants].sort(
+        () => Math.random() - 0.5
+      );
+      const drawWinners = shuffled.slice(
+        0,
+        Math.min(winnersCount, eligibleParticipants.length)
+      );
 
-      if (result.success && result.result) {
-        // Animar a revelação dos ganhadores
-        const drawWinners = result.result.winners;
-        setWinners([]);
+      // Mostrar ganhadores instantaneamente
+      setWinners(drawWinners);
 
-        for (let i = 0; i < drawWinners.length; i++) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          setWinners((prev) => [...prev, drawWinners[i]]);
-        }
+      // Adicionar ao histórico
+      setWinnersHistory((prev) => [...prev, ...drawWinners]);
 
-        setShowConfetti(true);
-        setTimeout(() => setShowConfetti(false), 5000);
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 5000);
+
+      // Tentar registrar no servidor (opcional)
+      try {
+        await makeRequest(`/draw/${apiKey}`, {
+          method: "POST",
+          body: JSON.stringify({ quantity: winnersCount }),
+        });
+      } catch (error) {
+        console.warn("Erro ao registrar sorteio no servidor:", error);
       }
     } catch (error) {
       console.error("Erro no sorteio:", error);
@@ -193,6 +224,10 @@ function SorteioLive({
     setShowConfetti(false);
   };
 
+  const clearHistory = () => {
+    setWinnersHistory([]);
+  };
+
   const handleApiKeySubmit = () => {
     if (tempApiKey.trim()) {
       setApiKey(tempApiKey.trim());
@@ -206,8 +241,37 @@ function SorteioLive({
     setProjectInfo(null);
     setParticipants([]);
     setWinners([]);
+    setWinnersHistory([]);
     setDrawComplete(false);
     setShowApiKeyInput(false);
+  };
+
+  const loadStats = async () => {
+    if (!apiKey) return;
+    
+    try {
+      // Carregar informações específicas do projeto atual
+      const projectResult = await makeRequest(`/validate-key/${apiKey}`);
+      
+      if (projectResult.valid && projectResult.project) {
+        // Carregar participantes para estatísticas em tempo real
+        const participantsResult = await makeRequest(`/participants/${apiKey}`);
+        
+        const currentStats = {
+          project: projectResult.project,
+          currentParticipants: participantsResult.participants?.length || 0,
+          totalWinners: winnersHistory.length,
+          availableParticipants: participants.filter(p => 
+            !winnersHistory.some(w => w.id === p.id)
+          ).length
+        };
+        
+        setStatsData(currentStats);
+        setShowStatsPopup(true);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar estatísticas:", error);
+    }
   };
 
   if (!apiKey) {
@@ -352,6 +416,114 @@ function SorteioLive({
         )}
       </AnimatePresence>
 
+      {/* Pop-up de Estatísticas */}
+      <AnimatePresence>
+        {showStatsPopup && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+            onClick={() => setShowStatsPopup(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              onClick={(e) => e.stopPropagation()}
+              className="corporate-bg rounded-2xl p-8 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <ChartLine size={24} className="corporate-accent" />
+                  <h2 className="text-2xl font-bold corporate-primary">
+                    Estatísticas do Sistema
+                  </h2>
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setShowStatsPopup(false)}
+                  className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 transition-colors"
+                >
+                  <X size={20} />
+                </motion.button>
+              </div>
+
+              {statsData && (
+                <div className="space-y-4">
+                  <div className="bg-black/20 rounded-xl p-4 text-center">
+                    <div className="text-3xl font-bold corporate-accent mb-2">
+                      {statsData.projects?.length || 0}
+                    </div>
+                    <div className="corporate-secondary">Total de Projetos</div>
+                  </div>
+
+                  {statsData.projects && statsData.projects.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold corporate-primary mb-4">
+                        Projetos Ativos
+                      </h3>
+                      <div className="space-y-3 max-h-64 overflow-y-auto">
+                        {statsData.projects.map((project: ProjectInfo) => (
+                          <div
+                            key={project.apiKey}
+                            className="bg-black/20 rounded-lg p-4"
+                          >
+                            <p className="font-semibold text-lg corporate-primary mb-2">
+                              {project.projectName}
+                            </p>
+                            <p className="text-sm corporate-secondary mb-3">
+                              {project.description}
+                            </p>
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                              <div>
+                                <div className="text-xl font-bold corporate-accent">
+                                  {project.participants}
+                                </div>
+                                <div className="text-xs corporate-secondary">
+                                  Participantes
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-xl font-bold corporate-accent">
+                                  {project.results}
+                                </div>
+                                <div className="text-xs corporate-secondary">
+                                  Sorteios
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-xl font-bold corporate-accent">
+                                  {project.usage}
+                                </div>
+                                <div className="text-xs corporate-secondary">
+                                  Usos da API
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!statsData && (
+                <div className="text-center py-8">
+                  <ChartLine
+                    size={64}
+                    className="corporate-secondary/50 mx-auto mb-4"
+                  />
+                  <p className="corporate-secondary">Nenhum dado encontrado</p>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <motion.div
@@ -399,12 +571,23 @@ function SorteioLive({
               {autoRefresh ? <Play size={20} /> : <Pause size={20} />}
             </motion.button>
 
+            {/* Botão de Estatísticas */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={loadStats}
+              className="p-3 rounded-xl bg-accent/10 border border-accent/20 text-accent hover:bg-accent/20 transition-colors"
+              title="Ver estatísticas"
+            >
+              <ChartLine size={20} />
+            </motion.button>
+
             {/* Botão discreto para gerenciar chave API */}
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleLogout}
-              className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors flex items-center gap-1"
+              className="p-3.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors flex items-center gap-1"
               title="Desconectar chave API"
             >
               <Key size={16} />
@@ -485,6 +668,31 @@ function SorteioLive({
                             ))}
                         </select>
                       </div>
+
+                      {/* Aviso sobre participantes elegíveis */}
+                      {participants.length > 0 && (
+                        <div className="mt-3 text-center">
+                          {participants.filter(
+                            (p) => !winnersHistory.some((w) => w.id === p.id)
+                          ).length === 0 ? (
+                            <p className="text-amber-400 text-sm">
+                              ⚠️ Todos já ganharam! Sorteio permitirá
+                              repetições.
+                            </p>
+                          ) : (
+                            <p className="text-green-400 text-sm">
+                              ✓{" "}
+                              {
+                                participants.filter(
+                                  (p) =>
+                                    !winnersHistory.some((w) => w.id === p.id)
+                                ).length
+                              }{" "}
+                              participantes elegíveis
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <motion.button
@@ -631,120 +839,143 @@ function SorteioLive({
             </motion.div>
           </div>
 
-          {/* Painel Lateral - Participantes e Estatísticas */}
-          <div className="space-y-6">
-            {/* Estatísticas */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="corporate-bg rounded-2xl p-6"
-            >
-              <h3 className="text-xl font-bold corporate-primary mb-4 flex items-center gap-2">
-                <ChartLine size={24} className="corporate-accent" />
-                Estatísticas
+          {/* Histórico de Ganhadores */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.05 }}
+            className="corporate-bg rounded-2xl p-6"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold corporate-primary flex items-center gap-2">
+                <Crown size={24} className="text-yellow-400" />
+                Histórico de Ganhadores
               </h3>
+              {winnersHistory.length > 0 && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={clearHistory}
+                  className="text-xs px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 rounded-lg font-semibold transition-colors"
+                >
+                  Limpar
+                </motion.button>
+              )}
+            </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-4 bg-black/20 rounded-xl">
-                  <div className="text-3xl font-bold corporate-accent mb-1">
-                    {participants.length}
-                  </div>
-                  <div className="text-sm corporate-secondary">
-                    Participantes
-                  </div>
-                </div>
-
-                <div className="text-center p-4 bg-black/20 rounded-xl">
-                  <div className="text-3xl font-bold corporate-accent mb-1">
-                    {projectInfo?.results || 0}
-                  </div>
-                  <div className="text-sm corporate-secondary">Sorteios</div>
-                </div>
-              </div>
-
-              <div className="mt-4 p-4 bg-black/20 rounded-xl">
-                <div className="text-center">
-                  <div className="text-2xl font-bold corporate-accent mb-1">
-                    {projectInfo?.usage || 0}
-                  </div>
-                  <div className="text-sm corporate-secondary">
-                    Total de Usos da API
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Lista de Participantes */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-              className="corporate-bg rounded-2xl p-6"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold corporate-primary flex items-center gap-2">
-                  <Users size={24} className="corporate-accent" />
-                  Participantes
-                </h3>
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      autoRefresh ? "bg-green-400" : "bg-red-400"
-                    }`}
-                  />
-                  <span className="text-xs corporate-secondary">
-                    {autoRefresh ? "Atualizando" : "Pausado"}
-                  </span>
-                </div>
-              </div>
-
-              <div className="max-h-96 overflow-y-auto space-y-2">
-                <AnimatePresence>
-                  {participants.map((participant) => (
+            <div className="max-h-60 overflow-y-auto space-y-2">
+              <AnimatePresence>
+                {winnersHistory
+                  .slice()
+                  .reverse()
+                  .map((winner, index) => (
                     <motion.div
-                      key={participant.id}
+                      key={`${winner.id}-${index}`}
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20 }}
-                      className="p-3 bg-black/20 rounded-lg hover:bg-black/30 transition-colors"
+                      className="p-3 bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border border-yellow-400/20 rounded-lg"
                     >
-                      <p className="font-semibold text-sm corporate-primary">
-                        {participant.nome}
-                      </p>
-                      <p className="text-xs corporate-secondary truncate">
-                        {participant.email}
-                      </p>
-                      {participant.cidade && (
-                        <p className="text-xs corporate-secondary/60">
-                          📍 {participant.cidade}
-                        </p>
-                      )}
-                      <p className="text-xs corporate-secondary/50 mt-1">
-                        {new Date(participant.submittedAt).toLocaleString(
-                          "pt-BR"
-                        )}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <Crown size={16} className="text-yellow-400" />
+                        <div className="flex-1">
+                          <p className="font-semibold text-sm corporate-primary">
+                            {winner.nome}
+                          </p>
+                          <p className="text-xs corporate-secondary truncate">
+                            {winner.email}
+                          </p>
+                        </div>
+                      </div>
                     </motion.div>
                   ))}
-                </AnimatePresence>
+              </AnimatePresence>
 
-                {participants.length === 0 && (
-                  <div className="text-center py-8">
-                    <Users
-                      size={48}
-                      className="corporate-secondary/50 mx-auto mb-3"
-                    />
-                    <p className="corporate-secondary">
-                      Nenhum participante ainda
-                    </p>
-                    <p className="text-xs corporate-secondary/70 mt-1">
-                      Os participantes aparecerão aqui em tempo real
-                    </p>
-                  </div>
-                )}
+              {winnersHistory.length === 0 && (
+                <div className="text-center py-8">
+                  <Crown
+                    size={48}
+                    className="corporate-secondary/50 mx-auto mb-3"
+                  />
+                  <p className="corporate-secondary">Nenhum ganhador ainda</p>
+                  <p className="text-xs corporate-secondary/70 mt-1">
+                    O histórico aparecerá aqui após os sorteios
+                  </p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+
+          {/* Lista de Participantes
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+            className="corporate-bg rounded-2xl p-6"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold corporate-primary flex items-center gap-2">
+                <Users size={24} className="corporate-accent" />
+                Participantes
+              </h3>
+              <div className="flex items-center gap-2">
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    autoRefresh ? "bg-green-400" : "bg-red-400"
+                  }`}
+                />
+                <span className="text-xs corporate-secondary">
+                  {autoRefresh ? "Atualizando" : "Pausado"}
+                </span>
               </div>
-            </motion.div>
-          </div>
+            </div>
+
+            <div className="max-h-96 overflow-y-auto space-y-2">
+              <AnimatePresence>
+                {participants.map((participant) => (
+                  <motion.div
+                    key={participant.id}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    className="p-3 bg-black/20 rounded-lg hover:bg-black/30 transition-colors"
+                  >
+                    <p className="font-semibold text-sm corporate-primary">
+                      {participant.nome}
+                    </p>
+                    <p className="text-xs corporate-secondary truncate">
+                      {participant.email}
+                    </p>
+                    {participant.cidade && (
+                      <p className="text-xs corporate-secondary/60">
+                        📍 {participant.cidade}
+                      </p>
+                    )}
+                    <p className="text-xs corporate-secondary/50 mt-1">
+                      {new Date(participant.submittedAt).toLocaleString(
+                        "pt-BR"
+                      )}
+                    </p>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+
+              {participants.length === 0 && (
+                <div className="text-center py-8">
+                  <Users
+                    size={48}
+                    className="corporate-secondary/50 mx-auto mb-3"
+                  />
+                  <p className="corporate-secondary">
+                    Nenhum participante ainda
+                  </p>
+                  <p className="text-xs corporate-secondary/70 mt-1">
+                    Os participantes aparecerão aqui em tempo real
+                  </p>
+                </div>
+              )}
+            </div>
+          </motion.div> */}
         </div>
       </div>
     </div>

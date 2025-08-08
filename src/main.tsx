@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
-import { DiceFive, Cpu, Trophy } from "phosphor-react";
+import { DiceFive, Trophy, Key } from "phosphor-react";
 import "./index.css";
 import App from "./App.tsx";
 import TesteAPI from "./TesteAPI.tsx";
@@ -24,18 +24,17 @@ createRoot(document.getElementById("root")!).render(
                 Sorteador
               </Link>
               <Link
-                to="/teste"
-                className="px-4 py-2 rounded-lg bg-accent/20 hover:bg-accent/30 text-accent border border-accent/30 transition-colors font-semibold flex items-center gap-2"
-              >
-                <Cpu size={20} />
-                Teste API
-              </Link>
-              <Link
                 to="/sorteio-live"
                 className="px-4 py-2 rounded-lg bg-secondary/20 hover:bg-secondary/30 text-secondary border border-secondary/30 transition-colors font-semibold flex items-center gap-2"
               >
                 <Trophy size={20} />
                 Sorteio Live
+              </Link>{" "}
+              <Link
+                to="/teste"
+                className="px-4 py-2 rounded-lg bg-accent/20 hover:bg-accent/30 text-accent border border-yellow-500/30 transition-colors font-semibold flex items-center gap-2 "
+              >
+                <Key size={20} className="text-yellow-500" />
               </Link>
             </div>
           </div>
