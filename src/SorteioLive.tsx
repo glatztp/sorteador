@@ -14,8 +14,6 @@ import {
   Key,
   CheckCircle,
   X,
-  Phone,
-  MapPin,
 } from "phosphor-react";
 import { useNavigate } from "react-router-dom";
 
@@ -220,7 +218,20 @@ function SorteioLive({
           animate={{ opacity: 1, scale: 1 }}
           className="text-center max-w-md mx-auto"
         >
-          <Trophy size={64} className="corporate-accent mx-auto mb-4" />
+          <motion.div
+            animate={{
+              scale: [1, 1.05, 1],
+              rotate: [0, 5, -5, 0],
+            }}
+            transition={{
+              duration: 3,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+            className="mb-6"
+          >
+            <Trophy size={64} className="corporate-accent mx-auto mb-4" />
+          </motion.div>
           <h2 className="text-2xl font-bold corporate-primary mb-4">
             Sorteio ao Vivo
           </h2>
@@ -231,12 +242,13 @@ function SorteioLive({
           <div className="space-y-4">
             {!showApiKeyInput ? (
               <motion.button
-                whileHover={{ scale: 1.05 }}
+                whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setShowApiKeyInput(true)}
                 className="w-full modern-btn justify-center text-lg py-4"
               >
-                🔑 Inserir Chave API
+                <Key size={24} />
+                Conectar com Chave API
               </motion.button>
             ) : (
               <motion.div
@@ -281,18 +293,17 @@ function SorteioLive({
                     className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 rounded-lg font-semibold transition-colors flex items-center gap-2"
                   >
                     <X size={16} />
-                    Cancelar
                   </motion.button>
                 </div>
               </motion.div>
             )}
 
-            <div className="pt-4 border-t border-primary/20">
+            <div className="pt-4 border-t corporate-border">
               <motion.button
-                whileHover={{ scale: 1.02 }}
+                whileHover={{ scale: 1.02, x: -4 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => navigate("/teste")}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-lg font-semibold transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#716f81]/10 hover:bg-[#716f81]/20 corporate-primary border corporate-border rounded-lg font-semibold transition-colors"
               >
                 <ArrowLeft size={20} />
                 Voltar para Teste API
@@ -481,7 +492,7 @@ function SorteioLive({
                       whileTap={{ scale: 0.95 }}
                       onClick={performDraw}
                       disabled={participants.length === 0 || loading}
-                      className="text-2xl font-bold px-12 py-6 bg-gradient-to-r from-accent via-secondary to-primary text-black rounded-2xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+                      className="text-2xl font-bold px-12 py-6 bg-amber-400  rounded-2xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
                     >
                       <motion.div
                         className="flex items-center gap-4"
@@ -562,7 +573,7 @@ function SorteioLive({
                         />
                       </motion.div>
                       <h2 className="text-4xl font-bold corporate-primary mb-4">
-                        Parabéns aos Ganhadores!
+                        🎉 Parabéns aos Ganhadores! 🎉
                       </h2>
                     </div>
 
@@ -589,14 +600,12 @@ function SorteioLive({
                                 </p>
                                 {winner.telefone && (
                                   <p className="text-sm corporate-secondary/70">
-                                    <Phone size={14} className="inline mr-1" />{" "}
-                                    {winner.telefone}
+                                    📞 {winner.telefone}
                                   </p>
                                 )}
                                 {winner.cidade && (
                                   <p className="text-sm corporate-secondary/70">
-                                    <MapPin size={14} className="inline mr-1" />{" "}
-                                    {winner.cidade}
+                                    📍 {winner.cidade}
                                   </p>
                                 )}
                               </div>
@@ -707,8 +716,7 @@ function SorteioLive({
                       </p>
                       {participant.cidade && (
                         <p className="text-xs corporate-secondary/60">
-                          <MapPin size={12} className="inline mr-1" />{" "}
-                          {participant.cidade}
+                          📍 {participant.cidade}
                         </p>
                       )}
                       <p className="text-xs corporate-secondary/50 mt-1">
