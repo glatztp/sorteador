@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sorteador API - Dashboard Completo</title>
+    <style>
+      /* Mesmos estilos da dashboard anterior, mas vou adicionar estilos para as novas seções */
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+        background: linear-gradient(135deg, #101013 0%, #1a1a1f 100%);
+        color: #f7f7f8;
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1600px;
+        margin: 0 auto;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 40px;
+      }
+
+      .header h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: linear-gradient(45deg, #716f81, #b97a95, #f6ae99);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 10px;
+      }
+
+      .tab-navigation {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 30px;
+      }
+
+      .tab-btn {
+        background: rgba(113, 111, 129, 0.2);
+        border: 1px solid rgba(113, 111, 129, 0.3);
+        color: #9ca3af;
+        padding: 12px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: 500;
+      }
+
+      .tab-btn.active {
+        background: linear-gradient(45deg, #b97a95, #f6ae99);
+        color: #101013;
+        border-color: #f6ae99;
+      }
+
+      .tab-content {
+        display: none;
+      }
+
+      .tab-content.active {
+        display: block;
+      }
+
+      /* Estilos para tabelas */
+      .data-table {
+        background: rgba(113, 111, 129, 0.1);
+        border: 1px solid rgba(113, 111, 129, 0.2);
+        border-radius: 16px;
+        overflow: hidden;
+        margin-bottom: 30px;
+      }
+
+      .table-header {
+        background: rgba(246, 174, 153, 0.1);
+        padding: 20px;
+        border-bottom: 1px solid rgba(113, 111, 129, 0.2);
+      }
+
+      .table-header h3 {
+        color: #f6ae99;
+        font-size: 1.3rem;
+        margin-bottom: 5px;
+      }
+
+      .table-header p {
+        color: #9ca3af;
+        font-size: 0.9rem;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 12px 16px;
+        text-align: left;
+        border-bottom: 1px solid rgba(113, 111, 129, 0.1);
+      }
+
+      th {
+        background: rgba(16, 16, 19, 0.6);
+        color: #e5e7eb;
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      td {
+        color: #d1d5db;
+      }
+
+      .participant-data {
+        max-width: 300px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .api-key-display {
+        font-family: monospace;
+        background: rgba(16, 16, 19, 0.8);
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+      }
+
+      .date-display {
+        color: #9ca3af;
+        font-size: 0.9rem;
+      }
+
+      .status-badge {
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 500;
+      }
+
+      .status-active {
+        background: rgba(16, 185, 129, 0.2);
+        color: #10b981;
+      }
+
+      .winner-list {
+        max-width: 400px;
+      }
+
+      .winner-item {
+        background: rgba(246, 174, 153, 0.1);
+        padding: 8px;
+        margin: 4px 0;
+        border-radius: 4px;
+        font-size: 0.9rem;
+      }
+
+      .search-box {
+        background: rgba(16, 16, 19, 0.8);
+        border: 1px solid rgba(113, 111, 129, 0.3);
+        border-radius: 8px;
+        padding: 12px;
+        color: #f7f7f8;
+        margin-bottom: 20px;
+        width: 100%;
+        max-width: 400px;
+      }
+
+      .search-box:focus {
+        outline: none;
+        border-color: #f6ae99;
+      }
+
+      .filter-section {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+      }
+
+      .loading {
+        text-align: center;
+        color: #9ca3af;
+        padding: 40px;
+      }
+
+      .empty-state {
+        text-align: center;
+        color: #9ca3af;
+        padding: 60px 20px;
+      }
+
+      @media (max-width: 768px) {
+        .filter-section {
+          flex-direction: column;
+        }
+
+        table {
+          font-size: 0.9rem;
+        }
+
+        th,
+        td {
+          padding: 8px 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🎲 Dashboard Completo - Sorteador API</h1>
+        <p>Visualize TODOS os dados de TODAS as chaves API criadas</p>
+      </div>
+
+      <div class="tab-navigation">
+        <button class="tab-btn active" onclick="switchTab('overview')">
+          📊 Visão Geral
+        </button>
+        <button class="tab-btn" onclick="switchTab('participants')">
+          👥 Todos Participantes
+        </button>
+        <button class="tab-btn" onclick="switchTab('results')">
+          🎯 Todos Sorteios
+        </button>
+        <button class="tab-btn" onclick="switchTab('analytics')">
+          📈 Análises
+        </button>
+      </div>
+
+      <!-- Tab: Visão Geral -->
+      <div id="overview" class="tab-content active">
+        <div class="data-table">
+          <div class="table-header">
+            <h3>🗝️ Todas as Chaves API</h3>
+            <p>Visualize todas as chaves criadas e suas estatísticas</p>
+          </div>
+          <div class="filter-section">
+            <input
+              type="text"
+              class="search-box"
+              id="searchKeys"
+              placeholder="🔍 Buscar por nome do projeto ou chave..."
+            />
+          </div>
+          <div id="keysTableContainer">
+            <div class="loading">🔄 Carregando chaves...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Todos Participantes -->
+      <div id="participants" class="tab-content">
+        <div class="data-table">
+          <div class="table-header">
+            <h3>👥 Todos os Participantes</h3>
+            <p>Dados de todos os participantes de todas as APIs</p>
+          </div>
+          <div class="filter-section">
+            <input
+              type="text"
+              class="search-box"
+              id="searchParticipants"
+              placeholder="🔍 Buscar participantes..."
+            />
+            <select class="search-box" id="filterByApi">
+              <option value="">Todas as APIs</option>
+            </select>
+          </div>
+          <div id="participantsTableContainer">
+            <div class="loading">🔄 Carregando participantes...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Todos Sorteios -->
+      <div id="results" class="tab-content">
+        <div class="data-table">
+          <div class="table-header">
+            <h3>🎯 Histórico de Todos os Sorteios</h3>
+            <p>Resultados de todos os sorteios realizados</p>
+          </div>
+          <div class="filter-section">
+            <input
+              type="text"
+              class="search-box"
+              id="searchResults"
+              placeholder="🔍 Buscar sorteios..."
+            />
+            <select class="search-box" id="filterResultsByApi">
+              <option value="">Todas as APIs</option>
+            </select>
+          </div>
+          <div id="resultsTableContainer">
+            <div class="loading">🔄 Carregando sorteios...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Análises -->
+      <div id="analytics" class="tab-content">
+        <div class="data-table">
+          <div class="table-header">
+            <h3>📈 Estatísticas Gerais</h3>
+            <p>Análises e métricas do sistema</p>
+          </div>
+          <div id="analyticsContainer">
+            <div class="loading">🔄 Carregando estatísticas...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // URL da API - ajuste conforme necessário
+      const API_URL = window.location.origin + "/api";
+
+      let allData = {
+        keys: [],
+        participants: [],
+        results: [],
+      };
+
+      // Função para alternar tabs
+      function switchTab(tabName) {
+        // Remover classe active de todas as tabs
+        document
+          .querySelectorAll(".tab-btn")
+          .forEach((btn) => btn.classList.remove("active"));
+        document
+          .querySelectorAll(".tab-content")
+          .forEach((content) => content.classList.remove("active"));
+
+        // Adicionar classe active na tab selecionada
+        event.target.classList.add("active");
+        document.getElementById(tabName).classList.add("active");
+
+        // Carregar dados específicos da tab
+        if (tabName === "participants") loadAllParticipants();
+        if (tabName === "results") loadAllResults();
+        if (tabName === "analytics") loadAnalytics();
+      }
+
+      // Carregar dados gerais
+      async function loadDashboard() {
+        try {
+          const response = await fetch(`${API_URL}/dashboard`);
+          const data = await response.json();
+
+          if (data.success) {
+            allData.keys = data.projects;
+            displayKeysTable(data.projects);
+            populateApiFilters(data.projects);
+          }
+        } catch (error) {
+          document.getElementById("keysTableContainer").innerHTML =
+            '<div class="empty-state"><h3>❌ Erro ao carregar dados</h3></div>';
+        }
+      }
+
+      // Mostrar tabela de chaves
+      function displayKeysTable(keys) {
+        const container = document.getElementById("keysTableContainer");
+
+        if (keys.length === 0) {
+          container.innerHTML =
+            '<div class="empty-state"><h3>🎯 Nenhuma chave encontrada</h3></div>';
+          return;
+        }
+
+        container.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Projeto</th>
+                            <th>Chave API</th>
+                            <th>Descrição</th>
+                            <th>Criado em</th>
+                            <th>Status</th>
+                            <th>Usos</th>
+                            <th>Participantes</th>
+                            <th>Sorteios</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${keys
+                          .map(
+                            (key) => `
+                            <tr>
+                                <td><strong>${key.projectName}</strong></td>
+                                <td><code class="api-key-display">${key.apiKey.substring(
+                                  0,
+                                  16
+                                )}...</code></td>
+                                <td>${key.description || "Sem descrição"}</td>
+                                <td class="date-display">${new Date(
+                                  key.createdAt
+                                ).toLocaleString("pt-BR")}</td>
+                                <td><span class="status-badge status-active">${
+                                  key.isActive ? "✅ Ativo" : "❌ Inativo"
+                                }</span></td>
+                                <td>${key.usage}</td>
+                                <td>${key.participants}</td>
+                                <td>${key.results}</td>
+                            </tr>
+                        `
+                          )
+                          .join("")}
+                    </tbody>
+                </table>
+            `;
+      }
+
+      // Carregar todos os participantes
+      async function loadAllParticipants() {
+        const container = document.getElementById("participantsTableContainer");
+        container.innerHTML =
+          '<div class="loading">🔄 Carregando participantes...</div>';
+
+        try {
+          const allParticipants = [];
+
+          for (const key of allData.keys) {
+            const response = await fetch(
+              `${API_URL}/participants/${key.apiKey}`
+            );
+            const data = await response.json();
+
+            if (data.success && data.participants) {
+              data.participants.forEach((participant) => {
+                participant.projectName = key.projectName;
+                participant.apiKeyShort = key.apiKey.substring(0, 8) + "...";
+              });
+              allParticipants.push(...data.participants);
+            }
+          }
+
+          allData.participants = allParticipants;
+          displayParticipantsTable(allParticipants);
+        } catch (error) {
+          container.innerHTML =
+            '<div class="empty-state"><h3>❌ Erro ao carregar participantes</h3></div>';
+        }
+      }
+
+      // Mostrar tabela de participantes
+      function displayParticipantsTable(participants) {
+        const container = document.getElementById("participantsTableContainer");
+
+        if (participants.length === 0) {
+          container.innerHTML =
+            '<div class="empty-state"><h3>👥 Nenhum participante encontrado</h3></div>';
+          return;
+        }
+
+        container.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Projeto</th>
+                            <th>API</th>
+                            <th>Dados do Participante</th>
+                            <th>Submetido em</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${participants
+                          .map(
+                            (participant) => `
+                            <tr>
+                                <td><strong>${
+                                  participant.projectName
+                                }</strong></td>
+                                <td><code>${participant.apiKeyShort}</code></td>
+                                <td class="participant-data">
+                                    ${Object.entries(participant)
+                                      .filter(
+                                        ([key]) =>
+                                          ![
+                                            "id",
+                                            "submittedAt",
+                                            "projectName",
+                                            "apiKeyShort",
+                                            "apiKey",
+                                          ].includes(key)
+                                      )
+                                      .map(
+                                        ([key, value]) =>
+                                          `<strong>${key}:</strong> ${value}`
+                                      )
+                                      .join("<br>")}
+                                </td>
+                                <td class="date-display">${new Date(
+                                  participant.submittedAt
+                                ).toLocaleString("pt-BR")}</td>
+                            </tr>
+                        `
+                          )
+                          .join("")}
+                    </tbody>
+                </table>
+            `;
+      }
+
+      // Carregar todos os resultados
+      async function loadAllResults() {
+        const container = document.getElementById("resultsTableContainer");
+        container.innerHTML =
+          '<div class="loading">🔄 Carregando sorteios...</div>';
+
+        try {
+          const allResults = [];
+
+          for (const key of allData.keys) {
+            const response = await fetch(`${API_URL}/results/${key.apiKey}`);
+            const data = await response.json();
+
+            if (data.success && data.results) {
+              data.results.forEach((result) => {
+                result.projectName = key.projectName;
+                result.apiKeyShort = key.apiKey.substring(0, 8) + "...";
+              });
+              allResults.push(...data.results);
+            }
+          }
+
+          allData.results = allResults;
+          displayResultsTable(allResults);
+        } catch (error) {
+          container.innerHTML =
+            '<div class="empty-state"><h3>❌ Erro ao carregar sorteios</h3></div>';
+        }
+      }
+
+      // Mostrar tabela de resultados
+      function displayResultsTable(results) {
+        const container = document.getElementById("resultsTableContainer");
+
+        if (results.length === 0) {
+          container.innerHTML =
+            '<div class="empty-state"><h3>🎯 Nenhum sorteio encontrado</h3></div>';
+          return;
+        }
+
+        container.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Projeto</th>
+                            <th>API</th>
+                            <th>Vencedores</th>
+                            <th>Total Participantes</th>
+                            <th>Quantidade Sorteada</th>
+                            <th>Data do Sorteio</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${results
+                          .map(
+                            (result) => `
+                            <tr>
+                                <td><strong>${result.projectName}</strong></td>
+                                <td><code>${result.apiKeyShort}</code></td>
+                                <td class="winner-list">
+                                    ${result.winners
+                                      .map(
+                                        (winner) => `
+                                        <div class="winner-item">
+                                            ${Object.entries(winner)
+                                              .filter(
+                                                ([key]) =>
+                                                  ![
+                                                    "id",
+                                                    "submittedAt",
+                                                    "apiKey",
+                                                  ].includes(key)
+                                              )
+                                              .map(
+                                                ([key, value]) =>
+                                                  `<strong>${key}:</strong> ${value}`
+                                              )
+                                              .join(", ")}
+                                        </div>
+                                    `
+                                      )
+                                      .join("")}
+                                </td>
+                                <td>${result.totalParticipants}</td>
+                                <td>${result.quantity}</td>
+                                <td class="date-display">${new Date(
+                                  result.drawnAt
+                                ).toLocaleString("pt-BR")}</td>
+                            </tr>
+                        `
+                          )
+                          .join("")}
+                    </tbody>
+                </table>
+            `;
+      }
+
+      // Carregar análises
+      async function loadAnalytics() {
+        const container = document.getElementById("analyticsContainer");
+
+        const totalKeys = allData.keys.length;
+        const totalParticipants = allData.participants.length;
+        const totalResults = allData.results.length;
+        const activeKeys = allData.keys.filter((k) => k.isActive).length;
+
+        container.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                    <div style="background: rgba(16, 185, 129, 0.1); padding: 30px; border-radius: 12px; text-align: center;">
+                        <div style="font-size: 3rem; margin-bottom: 10px;">🗝️</div>
+                        <div style="font-size: 2rem; font-weight: bold; color: #10b981;">${totalKeys}</div>
+                        <div style="color: #9ca3af;">Chaves API Criadas</div>
+                    </div>
+                    
+                    <div style="background: rgba(59, 130, 246, 0.1); padding: 30px; border-radius: 12px; text-align: center;">
+                        <div style="font-size: 3rem; margin-bottom: 10px;">👥</div>
+                        <div style="font-size: 2rem; font-weight: bold; color: #3b82f6;">${totalParticipants}</div>
+                        <div style="color: #9ca3af;">Total Participantes</div>
+                    </div>
+                    
+                    <div style="background: rgba(246, 174, 153, 0.1); padding: 30px; border-radius: 12px; text-align: center;">
+                        <div style="font-size: 3rem; margin-bottom: 10px;">🎯</div>
+                        <div style="font-size: 2rem; font-weight: bold; color: #f6ae99;">${totalResults}</div>
+                        <div style="color: #9ca3af;">Sorteios Realizados</div>
+                    </div>
+                    
+                    <div style="background: rgba(168, 85, 247, 0.1); padding: 30px; border-radius: 12px; text-align: center;">
+                        <div style="font-size: 3rem; margin-bottom: 10px;">⚡</div>
+                        <div style="font-size: 2rem; font-weight: bold; color: #a855f7;">${activeKeys}</div>
+                        <div style="color: #9ca3af;">Chaves Ativas</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 40px;">
+                    <h3 style="color: #f6ae99; margin-bottom: 20px;">📊 Ranking de Projetos por Atividade</h3>
+                    <div style="background: rgba(113, 111, 129, 0.05); border-radius: 12px; padding: 20px;">
+                        ${allData.keys
+                          .sort(
+                            (a, b) =>
+                              b.participants +
+                              b.results -
+                              (a.participants + a.results)
+                          )
+                          .map(
+                            (key, index) => `
+                                <div style="display: flex; justify-content: space-between; padding: 15px; border-bottom: 1px solid rgba(113, 111, 129, 0.1);">
+                                    <div>
+                                        <strong>${index + 1}. ${
+                              key.projectName
+                            }</strong>
+                                        <div style="color: #9ca3af; font-size: 0.9rem;">${
+                                          key.description || "Sem descrição"
+                                        }</div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div style="color: #f6ae99; font-weight: bold;">${
+                                          key.participants + key.results
+                                        } atividades</div>
+                                        <div style="color: #9ca3af; font-size: 0.9rem;">${
+                                          key.participants
+                                        } participantes | ${
+                              key.results
+                            } sorteios</div>
+                                    </div>
+                                </div>
+                            `
+                          )
+                          .join("")}
+                    </div>
+                </div>
+            `;
+      }
+
+      // Popular filtros de API
+      function populateApiFilters(keys) {
+        const participantFilter = document.getElementById("filterByApi");
+        const resultFilter = document.getElementById("filterResultsByApi");
+
+        const options = keys
+          .map(
+            (key) => `<option value="${key.apiKey}">${key.projectName}</option>`
+          )
+          .join("");
+
+        participantFilter.innerHTML =
+          '<option value="">Todas as APIs</option>' + options;
+        resultFilter.innerHTML =
+          '<option value="">Todas as APIs</option>' + options;
+      }
+
+      // Funções de busca e filtro
+      document.getElementById("searchKeys").addEventListener("input", (e) => {
+        const term = e.target.value.toLowerCase();
+        const filtered = allData.keys.filter(
+          (key) =>
+            key.projectName.toLowerCase().includes(term) ||
+            key.apiKey.toLowerCase().includes(term) ||
+            (key.description && key.description.toLowerCase().includes(term))
+        );
+        displayKeysTable(filtered);
+      });
+
+      // Inicializar dashboard
+      loadDashboard();
+    </script>
+  </body>
+</html>

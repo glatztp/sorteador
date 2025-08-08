@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🧪 Teste da API do Sorteador</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Inter", -apple-system, sans-serif;
+        background: linear-gradient(135deg, #101013 0%, #1a1a1f 100%);
+        color: #f7f7f8;
+        padding: 20px;
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 40px;
+      }
+
+      .header h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: linear-gradient(45deg, #716f81, #b97a95, #f6ae99);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 10px;
+      }
+
+      .test-section {
+        background: rgba(113, 111, 129, 0.1);
+        border: 1px solid rgba(113, 111, 129, 0.2);
+        border-radius: 16px;
+        padding: 25px;
+        margin-bottom: 30px;
+        backdrop-filter: blur(10px);
+      }
+
+      .test-section h2 {
+        color: #f6ae99;
+        margin-bottom: 20px;
+        font-size: 1.5rem;
+      }
+
+      .test-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+      }
+
+      .test-card {
+        background: rgba(16, 16, 19, 0.6);
+        border: 1px solid rgba(113, 111, 129, 0.3);
+        border-radius: 12px;
+        padding: 20px;
+      }
+
+      .test-card h3 {
+        color: #b97a95;
+        margin-bottom: 15px;
+        font-size: 1.2rem;
+      }
+
+      .btn {
+        background: linear-gradient(45deg, #b97a95, #f6ae99);
+        color: #101013;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 20px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin: 5px;
+        font-size: 0.95rem;
+      }
+
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(246, 174, 153, 0.3);
+      }
+
+      .btn.secondary {
+        background: linear-gradient(45deg, #716f81, #9ca3af);
+        color: #f7f7f8;
+      }
+
+      .form-group {
+        margin-bottom: 15px;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        color: #e5e7eb;
+        font-weight: 500;
+      }
+
+      .form-group input,
+      .form-group select {
+        width: 100%;
+        background: rgba(16, 16, 19, 0.8);
+        border: 1px solid rgba(113, 111, 129, 0.3);
+        border-radius: 6px;
+        padding: 10px;
+        color: #f7f7f8;
+        font-size: 0.95rem;
+      }
+
+      .form-group input:focus,
+      .form-group select:focus {
+        outline: none;
+        border-color: #f6ae99;
+        box-shadow: 0 0 0 2px rgba(246, 174, 153, 0.1);
+      }
+
+      .result-box {
+        background: rgba(16, 16, 19, 0.8);
+        border: 1px solid rgba(113, 111, 129, 0.3);
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 15px;
+        font-family: "JetBrains Mono", "Fira Code", monospace;
+        font-size: 0.85rem;
+        white-space: pre-wrap;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+
+      .success {
+        color: #10b981;
+      }
+
+      .error {
+        color: #ef4444;
+      }
+
+      .info {
+        color: #3b82f6;
+      }
+
+      .warning {
+        color: #f59e0b;
+      }
+
+      .api-key-display {
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        border-radius: 6px;
+        padding: 10px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.85rem;
+        word-break: break-all;
+        margin: 10px 0;
+      }
+
+      .quick-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 30px;
+      }
+
+      .quick-links a {
+        background: rgba(113, 111, 129, 0.2);
+        color: #f6ae99;
+        text-decoration: none;
+        padding: 10px 15px;
+        border-radius: 6px;
+        border: 1px solid rgba(113, 111, 129, 0.3);
+        transition: all 0.3s ease;
+      }
+
+      .quick-links a:hover {
+        background: rgba(246, 174, 153, 0.1);
+        border-color: #f6ae99;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🧪 Teste da API do Sorteador</h1>
+        <p>Teste todas as funcionalidades da API</p>
+      </div>
+
+      <div class="quick-links">
+        <a href="http://localhost:3001/dashboard" target="_blank"
+          >📊 Dashboard</a
+        >
+        <a href="http://localhost:3001/api/dashboard" target="_blank"
+          >🔧 API Dashboard</a
+        >
+        <a href="../API-INTEGRATION.md" target="_blank">📖 Documentação</a>
+      </div>
+
+      <!-- Teste 1: Gerar Chave API -->
+      <div class="test-section">
+        <h2>1️⃣ Gerar Chave API</h2>
+        <div class="test-card">
+          <h3>Criar Nova Chave</h3>
+          <div class="form-group">
+            <label for="projectName">Nome do Projeto:</label>
+            <input
+              type="text"
+              id="projectName"
+              placeholder="Ex: Sorteio Halloween 2024"
+              value="Teste API"
+            />
+          </div>
+          <div class="form-group">
+            <label for="description">Descrição:</label>
+            <input
+              type="text"
+              id="description"
+              placeholder="Descrição do projeto"
+              value="Teste da funcionalidade API"
+            />
+          </div>
+          <button class="btn" onclick="gerarChave()">🔑 Gerar Chave API</button>
+          <div id="chaveResult" class="result-box" style="display: none"></div>
+          <div
+            id="apiKeyDisplay"
+            class="api-key-display"
+            style="display: none"
+          ></div>
+        </div>
+      </div>
+
+      <!-- Teste 2: Enviar Participantes -->
+      <div class="test-section">
+        <h2>2️⃣ Enviar Participantes</h2>
+        <div class="test-grid">
+          <div class="test-card">
+            <h3>Adicionar Participante</h3>
+            <div class="form-group">
+              <label for="chaveApi">Chave API:</label>
+              <input
+                type="text"
+                id="chaveApi"
+                placeholder="Cole a chave API aqui"
+              />
+            </div>
+            <div class="form-group">
+              <label for="nomeParticipante">Nome:</label>
+              <input
+                type="text"
+                id="nomeParticipante"
+                placeholder="Nome completo"
+                value="João Silva"
+              />
+            </div>
+            <div class="form-group">
+              <label for="emailParticipante">Email:</label>
+              <input
+                type="email"
+                id="emailParticipante"
+                placeholder="email@exemplo.com"
+                value="joao@email.com"
+              />
+            </div>
+            <div class="form-group">
+              <label for="telefoneParticipante">Telefone:</label>
+              <input
+                type="tel"
+                id="telefoneParticipante"
+                placeholder="(11) 99999-9999"
+                value="(11) 99999-9999"
+              />
+            </div>
+            <button class="btn" onclick="adicionarParticipante()">
+              👤 Adicionar Participante
+            </button>
+            <button
+              class="btn secondary"
+              onclick="adicionarParticipantesExemplo()"
+            >
+              👥 Adicionar 5 Exemplos
+            </button>
+            <div
+              id="participanteResult"
+              class="result-box"
+              style="display: none"
+            ></div>
+          </div>
+
+          <div class="test-card">
+            <h3>Listar Participantes</h3>
+            <div class="form-group">
+              <label for="chaveListar">Chave API:</label>
+              <input
+                type="text"
+                id="chaveListar"
+                placeholder="Cole a chave API aqui"
+              />
+            </div>
+            <button class="btn" onclick="listarParticipantes()">
+              📋 Listar Participantes
+            </button>
+            <div
+              id="listarResult"
+              class="result-box"
+              style="display: none"
+            ></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Teste 3: Fazer Sorteio -->
+      <div class="test-section">
+        <h2>3️⃣ Fazer Sorteio</h2>
+        <div class="test-grid">
+          <div class="test-card">
+            <h3>Realizar Sorteio</h3>
+            <div class="form-group">
+              <label for="chaveSorteio">Chave API:</label>
+              <input
+                type="text"
+                id="chaveSorteio"
+                placeholder="Cole a chave API aqui"
+              />
+            </div>
+            <div class="form-group">
+              <label for="quantidadeGanhadores"
+                >Quantidade de Ganhadores:</label
+              >
+              <select id="quantidadeGanhadores">
+                <option value="1">1 Ganhador</option>
+                <option value="2">2 Ganhadores</option>
+                <option value="3">3 Ganhadores</option>
+                <option value="5">5 Ganhadores</option>
+              </select>
+            </div>
+            <button class="btn" onclick="fazerSorteio()">
+              🎲 Fazer Sorteio
+            </button>
+            <div
+              id="sorteioResult"
+              class="result-box"
+              style="display: none"
+            ></div>
+          </div>
+
+          <div class="test-card">
+            <h3>Histórico de Sorteios</h3>
+            <div class="form-group">
+              <label for="chaveHistorico">Chave API:</label>
+              <input
+                type="text"
+                id="chaveHistorico"
+                placeholder="Cole a chave API aqui"
+              />
+            </div>
+            <button class="btn" onclick="verHistorico()">
+              📊 Ver Histórico
+            </button>
+            <div
+              id="historicoResult"
+              class="result-box"
+              style="display: none"
+            ></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Teste 4: Dashboard -->
+      <div class="test-section">
+        <h2>4️⃣ Dashboard</h2>
+        <div class="test-card">
+          <h3>Visualizar Dashboard</h3>
+          <p>Veja todas as chaves API criadas e suas estatísticas</p>
+          <button class="btn" onclick="carregarDashboard()">
+            📊 Carregar Dashboard
+          </button>
+          <div
+            id="dashboardResult"
+            class="result-box"
+            style="display: none"
+          ></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const API_URL = "http://localhost:3001/api";
+      let currentApiKey = "";
+
+      function mostrarResultado(elementId, data, tipo = "info") {
+        const element = document.getElementById(elementId);
+        element.style.display = "block";
+        element.innerHTML = JSON.stringify(data, null, 2);
+        element.className = `result-box ${tipo}`;
+      }
+
+      function copiarChave(chave) {
+        navigator.clipboard.writeText(chave).then(() => {
+          alert("✅ Chave copiada para a área de transferência!");
+        });
+      }
+
+      async function gerarChave() {
+        const projectName = document.getElementById("projectName").value;
+        const description = document.getElementById("description").value;
+
+        if (!projectName) {
+          alert("❌ Nome do projeto é obrigatório!");
+          return;
+        }
+
+        try {
+          const response = await fetch(`${API_URL}/generate-key`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ projectName, description }),
+          });
+
+          const result = await response.json();
+          mostrarResultado(
+            "chaveResult",
+            result,
+            result.success ? "success" : "error"
+          );
+
+          if (result.success) {
+            currentApiKey = result.apiKey;
+            document.getElementById("apiKeyDisplay").style.display = "block";
+            document.getElementById("apiKeyDisplay").innerHTML = `
+                        <strong>🔑 Sua Chave API:</strong><br>
+                        <code>${result.apiKey}</code><br>
+                        <button class="btn" onclick="copiarChave('${result.apiKey}')">📋 Copiar</button>
+                        <button class="btn secondary" onclick="preencherCampos('${result.apiKey}')">📝 Preencher Campos</button>
+                    `;
+          }
+        } catch (error) {
+          mostrarResultado(
+            "chaveResult",
+            { error: "Erro de conexão: " + error.message },
+            "error"
+          );
+        }
+      }
+
+      function preencherCampos(apiKey) {
+        document.getElementById("chaveApi").value = apiKey;
+        document.getElementById("chaveListar").value = apiKey;
+        document.getElementById("chaveSorteio").value = apiKey;
+        document.getElementById("chaveHistorico").value = apiKey;
+        alert("✅ Campos preenchidos com a chave API!");
+      }
+
+      async function adicionarParticipante() {
+        const apiKey = document.getElementById("chaveApi").value;
+        const nome = document.getElementById("nomeParticipante").value;
+        const email = document.getElementById("emailParticipante").value;
+        const telefone = document.getElementById("telefoneParticipante").value;
+
+        if (!apiKey || !nome || !email) {
+          alert("❌ Chave API, nome e email são obrigatórios!");
+          return;
+        }
+
+        try {
+          const response = await fetch(`${API_URL}/submit/${apiKey}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ nome, email, telefone }),
+          });
+
+          const result = await response.json();
+          mostrarResultado(
+            "participanteResult",
+            result,
+            result.success ? "success" : "error"
+          );
+        } catch (error) {
+          mostrarResultado(
+            "participanteResult",
+            { error: "Erro de conexão: " + error.message },
+            "error"
+          );
+        }
+      }
+
+      async function adicionarParticipantesExemplo() {
+        const apiKey = document.getElementById("chaveApi").value;
+
+        if (!apiKey) {
+          alert("❌ Informe a chave API primeiro!");
+          return;
+        }
+
+        const participantesExemplo = [
+          {
+            nome: "Maria Santos",
+            email: "maria@email.com",
+            telefone: "(11) 99999-1111",
+          },
+          {
+            nome: "Pedro Silva",
+            email: "pedro@email.com",
+            telefone: "(11) 99999-2222",
+          },
+          {
+            nome: "Ana Costa",
+            email: "ana@email.com",
+            telefone: "(11) 99999-3333",
+          },
+          {
+            nome: "Carlos Lima",
+            email: "carlos@email.com",
+            telefone: "(11) 99999-4444",
+          },
+          {
+            nome: "Julia Ferreira",
+            email: "julia@email.com",
+            telefone: "(11) 99999-5555",
+          },
+        ];
+
+        let resultados = [];
+
+        for (const participante of participantesExemplo) {
+          try {
+            const response = await fetch(`${API_URL}/submit/${apiKey}`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(participante),
+            });
+
+            const result = await response.json();
+            resultados.push({ participante: participante.nome, result });
+          } catch (error) {
+            resultados.push({
+              participante: participante.nome,
+              error: error.message,
+            });
+          }
+        }
+
+        mostrarResultado(
+          "participanteResult",
+          {
+            message: "5 participantes de exemplo adicionados",
+            resultados,
+          },
+          "success"
+        );
+      }
+
+      async function listarParticipantes() {
+        const apiKey = document.getElementById("chaveListar").value;
+
+        if (!apiKey) {
+          alert("❌ Informe a chave API!");
+          return;
+        }
+
+        try {
+          const response = await fetch(`${API_URL}/participants/${apiKey}`);
+          const result = await response.json();
+          mostrarResultado(
+            "listarResult",
+            result,
+            result.success ? "success" : "error"
+          );
+        } catch (error) {
+          mostrarResultado(
+            "listarResult",
+            { error: "Erro de conexão: " + error.message },
+            "error"
+          );
+        }
+      }
+
+      async function fazerSorteio() {
+        const apiKey = document.getElementById("chaveSorteio").value;
+        const quantity = document.getElementById("quantidadeGanhadores").value;
+
+        if (!apiKey) {
+          alert("❌ Informe a chave API!");
+          return;
+        }
+
+        try {
+          const response = await fetch(`${API_URL}/draw/${apiKey}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ quantity: parseInt(quantity) }),
+          });
+
+          const result = await response.json();
+          mostrarResultado(
+            "sorteioResult",
+            result,
+            result.success ? "success" : "error"
+          );
+        } catch (error) {
+          mostrarResultado(
+            "sorteioResult",
+            { error: "Erro de conexão: " + error.message },
+            "error"
+          );
+        }
+      }
+
+      async function verHistorico() {
+        const apiKey = document.getElementById("chaveHistorico").value;
+
+        if (!apiKey) {
+          alert("❌ Informe a chave API!");
+          return;
+        }
+
+        try {
+          const response = await fetch(`${API_URL}/results/${apiKey}`);
+          const result = await response.json();
+          mostrarResultado(
+            "historicoResult",
+            result,
+            result.success ? "success" : "error"
+          );
+        } catch (error) {
+          mostrarResultado(
+            "historicoResult",
+            { error: "Erro de conexão: " + error.message },
+            "error"
+          );
+        }
+      }
+
+      async function carregarDashboard() {
+        try {
+          const response = await fetch(`${API_URL}/dashboard`);
+          const result = await response.json();
+          mostrarResultado(
+            "dashboardResult",
+            result,
+            result.success ? "success" : "error"
+          );
+        } catch (error) {
+          mostrarResultado(
+            "dashboardResult",
+            { error: "Erro de conexão: " + error.message },
+            "error"
+          );
+        }
+      }
+
+      // Verificar se API está rodando ao carregar a página
+      window.addEventListener("load", async () => {
+        try {
+          const response = await fetch(`${API_URL}/dashboard`);
+          if (response.ok) {
+            console.log("✅ API está rodando corretamente!");
+          } else {
+            console.log("⚠️ API respondeu com erro:", response.status);
+          }
+        } catch (error) {
+          console.log(
+            "❌ API não está acessível. Certifique-se que está rodando em http://localhost:3001"
+          );
+        }
+      });
+    </script>
+  </body>
+</html>

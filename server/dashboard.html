@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sorteador API - Dashboard</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+        background: linear-gradient(135deg, #101013 0%, #1a1a1f 100%);
+        color: #f7f7f8;
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 40px;
+      }
+
+      .header h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: linear-gradient(45deg, #716f81, #b97a95, #f6ae99);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 10px;
+      }
+
+      .header p {
+        color: #9ca3af;
+        font-size: 1.1rem;
+      }
+
+      .create-key-section {
+        background: rgba(113, 111, 129, 0.1);
+        border: 1px solid rgba(113, 111, 129, 0.2);
+        border-radius: 16px;
+        padding: 30px;
+        margin-bottom: 40px;
+        backdrop-filter: blur(10px);
+      }
+
+      .create-key-section h2 {
+        color: #f6ae99;
+        margin-bottom: 20px;
+        font-size: 1.5rem;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 2fr auto;
+        gap: 15px;
+        align-items: end;
+      }
+
+      .form-group {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .form-group label {
+        color: #e5e7eb;
+        margin-bottom: 5px;
+        font-weight: 500;
+      }
+
+      .form-group input,
+      .form-group textarea {
+        background: rgba(16, 16, 19, 0.8);
+        border: 1px solid rgba(113, 111, 129, 0.3);
+        border-radius: 8px;
+        padding: 12px;
+        color: #f7f7f8;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+      }
+
+      .form-group input:focus,
+      .form-group textarea:focus {
+        outline: none;
+        border-color: #f6ae99;
+        box-shadow: 0 0 0 3px rgba(246, 174, 153, 0.1);
+      }
+
+      .btn {
+        background: linear-gradient(45deg, #b97a95, #f6ae99);
+        color: #101013;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 24px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1rem;
+      }
+
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(246, 174, 153, 0.3);
+      }
+
+      .keys-grid {
+        display: grid;
+        gap: 20px;
+      }
+
+      .key-card {
+        background: rgba(113, 111, 129, 0.1);
+        border: 1px solid rgba(113, 111, 129, 0.2);
+        border-radius: 16px;
+        padding: 25px;
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+      }
+
+      .key-card:hover {
+        border-color: rgba(246, 174, 153, 0.4);
+        transform: translateY(-2px);
+      }
+
+      .key-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 15px;
+      }
+
+      .key-title {
+        color: #f6ae99;
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin-bottom: 5px;
+      }
+
+      .key-description {
+        color: #9ca3af;
+        font-size: 0.95rem;
+      }
+
+      .key-actions {
+        display: flex;
+        gap: 10px;
+      }
+
+      .btn-small {
+        padding: 6px 12px;
+        font-size: 0.85rem;
+        border-radius: 6px;
+      }
+
+      .btn-danger {
+        background: linear-gradient(45deg, #ef4444, #dc2626);
+        color: white;
+      }
+
+      .btn-copy {
+        background: linear-gradient(45deg, #10b981, #059669);
+        color: white;
+      }
+
+      .key-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 15px;
+        margin-top: 20px;
+      }
+
+      .stat {
+        text-align: center;
+        padding: 15px;
+        background: rgba(16, 16, 19, 0.6);
+        border-radius: 8px;
+      }
+
+      .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #f6ae99;
+        margin-bottom: 5px;
+      }
+
+      .stat-label {
+        font-size: 0.8rem;
+        color: #9ca3af;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .key-code {
+        background: rgba(16, 16, 19, 0.8);
+        border: 1px solid rgba(113, 111, 129, 0.3);
+        border-radius: 8px;
+        padding: 10px;
+        font-family: "JetBrains Mono", "Fira Code", monospace;
+        font-size: 0.85rem;
+        color: #e5e7eb;
+        word-break: break-all;
+        margin: 15px 0;
+      }
+
+      .loading {
+        text-align: center;
+        color: #9ca3af;
+        font-size: 1.1rem;
+        margin: 40px 0;
+      }
+
+      .empty-state {
+        text-align: center;
+        color: #9ca3af;
+        padding: 60px 20px;
+      }
+
+      .empty-state h3 {
+        font-size: 1.5rem;
+        margin-bottom: 10px;
+      }
+
+      .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: rgba(16, 185, 129, 0.9);
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px;
+        backdrop-filter: blur(10px);
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+        z-index: 1000;
+      }
+
+      .notification.show {
+        transform: translateX(0);
+      }
+
+      .notification.error {
+        background: rgba(239, 68, 68, 0.9);
+      }
+
+      @media (max-width: 768px) {
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .key-header {
+          flex-direction: column;
+          gap: 15px;
+        }
+
+        .key-actions {
+          align-self: stretch;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🎲 Sorteador API</h1>
+        <p>Gerencie suas chaves API e sorteios</p>
+      </div>
+
+      <div class="create-key-section">
+        <h2>➕ Criar Nova Chave API</h2>
+        <form id="createKeyForm">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="projectName">Nome do Projeto *</label>
+              <input
+                type="text"
+                id="projectName"
+                name="projectName"
+                required
+                placeholder="Ex: Sorteio Halloween 2024"
+              />
+            </div>
+            <div class="form-group">
+              <label for="description">Descrição</label>
+              <input
+                type="text"
+                id="description"
+                name="description"
+                placeholder="Breve descrição do projeto"
+              />
+            </div>
+            <button type="submit" class="btn">Gerar Chave</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="keysContainer">
+        <div class="loading">🔄 Carregando chaves API...</div>
+      </div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <script>
+      const API_URL = "http://localhost:3001/api";
+
+      // Função para mostrar notificação
+      function showNotification(message, type = "success") {
+        const notification = document.getElementById("notification");
+        notification.textContent = message;
+        notification.className = `notification ${type} show`;
+
+        setTimeout(() => {
+          notification.classList.remove("show");
+        }, 3000);
+      }
+
+      // Função para copiar texto
+      async function copyToClipboard(text) {
+        try {
+          await navigator.clipboard.writeText(text);
+          showNotification("Chave copiada para a área de transferência!");
+        } catch (err) {
+          showNotification("Erro ao copiar chave", "error");
+        }
+      }
+
+      // Função para carregar dashboard
+      async function loadDashboard() {
+        try {
+          const response = await fetch(`${API_URL}/dashboard`);
+          const data = await response.json();
+
+          const container = document.getElementById("keysContainer");
+
+          if (data.success && data.projects.length > 0) {
+            container.innerHTML = `
+                        <div class="keys-grid">
+                            ${data.projects
+                              .map(
+                                (project) => `
+                                <div class="key-card">
+                                    <div class="key-header">
+                                        <div>
+                                            <div class="key-title">${
+                                              project.projectName
+                                            }</div>
+                                            <div class="key-description">${
+                                              project.description ||
+                                              "Sem descrição"
+                                            }</div>
+                                        </div>
+                                        <div class="key-actions">
+                                            <button class="btn btn-small btn-copy" onclick="copyToClipboard('${
+                                              project.apiKey
+                                            }')">📋 Copiar</button>
+                                            <button class="btn btn-small btn-danger" onclick="deleteKey('${
+                                              project.apiKey
+                                            }')">🗑️ Deletar</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="key-code">${
+                                      project.apiKey
+                                    }</div>
+                                    
+                                    <div class="key-stats">
+                                        <div class="stat">
+                                            <div class="stat-value">${
+                                              project.usage
+                                            }</div>
+                                            <div class="stat-label">Usos</div>
+                                        </div>
+                                        <div class="stat">
+                                            <div class="stat-value">${
+                                              project.participants
+                                            }</div>
+                                            <div class="stat-label">Participantes</div>
+                                        </div>
+                                        <div class="stat">
+                                            <div class="stat-value">${
+                                              project.results
+                                            }</div>
+                                            <div class="stat-label">Sorteios</div>
+                                        </div>
+                                        <div class="stat">
+                                            <div class="stat-value">${
+                                              project.isActive ? "✅" : "❌"
+                                            }</div>
+                                            <div class="stat-label">Status</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `
+                              )
+                              .join("")}
+                        </div>
+                    `;
+          } else {
+            container.innerHTML = `
+                        <div class="empty-state">
+                            <h3>🎯 Nenhuma chave API encontrada</h3>
+                            <p>Crie sua primeira chave API para começar a usar o sorteador!</p>
+                        </div>
+                    `;
+          }
+        } catch (error) {
+          document.getElementById("keysContainer").innerHTML = `
+                    <div class="empty-state">
+                        <h3>❌ Erro ao carregar chaves</h3>
+                        <p>Verifique se o servidor API está rodando.</p>
+                    </div>
+                `;
+          showNotification("Erro ao carregar dashboard", "error");
+        }
+      }
+
+      // Função para criar nova chave
+      async function createKey(event) {
+        event.preventDefault();
+
+        const formData = new FormData(event.target);
+        const data = {
+          projectName: formData.get("projectName"),
+          description: formData.get("description"),
+        };
+
+        try {
+          const response = await fetch(`${API_URL}/generate-key`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(data),
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            showNotification("Chave API gerada com sucesso!");
+            event.target.reset();
+            loadDashboard();
+          } else {
+            showNotification(result.error || "Erro ao gerar chave", "error");
+          }
+        } catch (error) {
+          showNotification("Erro ao gerar chave", "error");
+        }
+      }
+
+      // Função para deletar chave
+      async function deleteKey(apiKey) {
+        if (
+          !confirm(
+            "Tem certeza que deseja deletar esta chave? Esta ação não pode ser desfeita."
+          )
+        ) {
+          return;
+        }
+
+        try {
+          const response = await fetch(`${API_URL}/delete-key/${apiKey}`, {
+            method: "DELETE",
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            showNotification("Chave deletada com sucesso!");
+            loadDashboard();
+          } else {
+            showNotification(result.error || "Erro ao deletar chave", "error");
+          }
+        } catch (error) {
+          showNotification("Erro ao deletar chave", "error");
+        }
+      }
+
+      // Event listeners
+      document
+        .getElementById("createKeyForm")
+        .addEventListener("submit", createKey);
+
+      // Carregar dashboard ao inicializar
+      loadDashboard();
+
+      // Auto-refresh a cada 30 segundos
+      setInterval(loadDashboard, 30000);
+    </script>
+  </body>
+</html>
